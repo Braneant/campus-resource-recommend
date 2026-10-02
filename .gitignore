@@ -1,0 +1,28 @@
+# 依赖
+node_modules/
+backend/target/
+
+# 构建产物
+dist/
+dist-ssr/
+*.local
+
+# 日志与临时文件
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# 运行期数据（不纳入版本库）
+backend/uploads/
+backend/neo4j/
+
+# 系统文件
+.DS_Store
+Thumbs.db

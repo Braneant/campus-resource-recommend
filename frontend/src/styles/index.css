@@ -1,0 +1,96 @@
+:root {
+  /* 校园清新 · 蓝色系主色 */
+  --c-primary: #2f6df6;
+  --c-primary-light: #5b8def;
+  --c-primary-lighter: #eaf1ff;
+  --c-primary-dark: #1f52d0;
+  --c-success: #2bbf8a;
+  --c-warning: #f5a623;
+  --c-danger: #f5544c;
+  --c-info: #8a9bb8;
+  --c-bg: #f4f7fc;
+  --c-card: #ffffff;
+  --c-text: #2b3445;
+  --c-text-sub: #6b7689;
+  --c-border: #e6ecf5;
+  /* 推荐来源标签色 */
+  --c-cf: #2f6df6;   /* 协同过滤 */
+  --c-kg: #8b5cf6;   /* 知识图谱 */
+  --c-hot: #f5a623;  /* 热度 */
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: var(--c-text);
+  background: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { text-decoration: none; color: var(--c-primary); }
+
+/* 通用卡片阴影与卡片风格 */
+.app-card {
+  background: var(--c-card);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(47, 109, 246, 0.06);
+  border: 1px solid var(--c-border);
+}
+
+/* 主色按钮微调（Element Plus 变量覆盖） */
+.el-button--primary {
+  --el-button-bg-color: var(--c-primary);
+  --el-button-border-color: var(--c-primary);
+  --el-button-hover-bg-color: var(--c-primary-light);
+  --el-button-hover-border-color: var(--c-primary-light);
+  --el-button-active-bg-color: var(--c-primary-dark);
+}
+
+/* 页面容器 */
+.page-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 20px 24px 40px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--c-text);
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--c-text-sub);
+  margin: 0 0 18px;
+}
+
+/* 推荐来源标签 */
+.src-tag {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.src-tag.cf { color: #fff; background: var(--c-cf); }
+.src-tag.kg { color: #fff; background: var(--c-kg); }
+.src-tag.hot { color: #fff; background: var(--c-hot); }
+
+/* 渐变标题文字 */
+.brand-gradient {
+  background: linear-gradient(90deg, #2f6df6, #5b8def);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+.fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }

@@ -1,0 +1,61 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+spring:
+  application:
+    name: campus-recommend
+  datasource:
+    # 业务库 MySQL 8
+    url: jdbc:mysql://localhost:3306/campus_recommend?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&nullCatalogMeansCurrent=true
+    username: root
+    password: REDACTED
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+  # 跨域（开发期放开，生产请用正规配置）
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+# JWT 配置
+jwt:
+  secret: REDACTED
+  expiration: 86400000   # 24h（毫秒）
+  issuer: campus-recommend
+
+# Neo4j 配置（知识图谱库）
+neo4j:
+  uri: bolt://localhost:7687
+  username: neo4j
+  password: neo4j123
+  database: neo4j
+
+# 推荐算法权重与默认值
+recommend:
+  weight:
+    cf: 0.5      # 协同过滤
+    kg: 0.3      # 知识图谱
+    hot: 0.2     # 热度
+  top-n: 10
+
+# 文件上传本地目录
+upload:
+  path: ./uploads
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.campus.recommend.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+      # 本系统用 status 字段做软状态标记，不启用物理逻辑删除

@@ -1,5 +1,11 @@
 <template>
   <div class="auth-wrap">
+    <!-- 极光背景层：WebGL 不支持或动效关闭时自动隐藏，回退为静态渐变 -->
+    <div v-if="showAurora" class="auth-bg" aria-hidden="true">
+      <Aurora :color-stops="auroraStops" :speed="0.5" :amplitude="1.75" :blend="0.46" />
+    </div>
+    <div class="auth-veil" aria-hidden="true"></div>
+
     <div class="auth-card app-card">
       <div class="auth-left">
         <div class="brand-gradient auth-logo">智学推荐</div>
@@ -40,12 +46,19 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, CircleCheck } from '@element-plus/icons-vue'
 import { login } from '@/api/auth'
 import { useUserStore } from '@/store/user'
+import Aurora from '@/components/bits/Aurora.vue'
+import { canUseAurora } from '@/utils/motion'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const formRef = ref(null)
 const loading = ref(false)
+
+/** 极光配色：浅蓝 → 品牌蓝 → 知识图谱紫，三色在白底上均可辨识 */
+const auroraStops = ['#5b8def', '#2f6df6', '#8b5cf6']
+/** 是否启用极光背景（关闭动效开关或浏览器不支持 WebGL 时自动降级） */
+const showAurora = canUseAurora()
 
 const form = reactive({ username: '', password: '' })
 const rules = {
@@ -74,10 +87,34 @@ async function onSubmit() {
 
 <style scoped>
 .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #eaf1ff 0%, #f4f7fc 55%, #eaf6ff 100%); padding: 24px; }
-.auth-card { display: flex; width: 820px; max-width: 100%; border-radius: 16px; overflow: hidden; }
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #d9e6ff 0%, #e9eefb 55%, #e2e6ff 100%); padding: 24px; }
+
+/* 极光背景层（置于最底，轻微放大让光带占据视觉重心） */
+.auth-bg { position: absolute; inset: 0; z-index: 0; opacity: .95;
+  transform: scale(1.15) translateY(2%); transform-origin: 50% 48%; }
+
+/* 白色柔化层：仅在卡片区域加强，保证表单可读性，四周保留极光可见度 */
+.auth-veil { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(ellipse 44% 38% at 50% 50%, rgba(255,255,255,.58) 0%, rgba(255,255,255,.2) 62%, rgba(255,255,255,0) 100%); }
+
+.auth-card { position: relative; z-index: 1; display: flex; width: 820px; max-width: 100%;
+  border-radius: 16px; overflow: hidden;
+  animation: auth-card-in .5s cubic-bezier(.22,.8,.3,1) both; }
+
+@keyframes auth-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 动效尊重系统「减弱动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .auth-card { animation: none; }
+  .auth-bg { display: none; }
+}
+
 .auth-left { width: 320px; padding: 40px 32px; color: #fff;
-  background: linear-gradient(160deg, #2f6df6, #5b8def); }
+  background: linear-gradient(160deg, rgba(47,109,246,.95), rgba(91,141,239,.9)); }
 .auth-logo { font-size: 26px; margin-bottom: 18px; -webkit-text-fill-color: #fff; }
 .auth-slogan { font-size: 16px; line-height: 1.7; margin-bottom: 28px; }
 .auth-points { list-style: none; padding: 0; margin: 0; font-size: 13px; }

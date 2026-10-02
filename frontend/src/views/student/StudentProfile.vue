@@ -6,7 +6,7 @@
     <el-row :gutter="18">
       <el-col :span="9">
         <div class="app-card profile-card">
-          <el-avatar :size="72" :src="userInfo?.avatar || ''">{{ initial }}</el-avatar>
+          <el-avatar :size="72" :src="avatarSrc">{{ initial }}</el-avatar>
           <div class="p-name">{{ userInfo?.nickname || userInfo?.username }}</div>
           <div class="p-no">@{{ userInfo?.username }} · 学号 {{ userInfo?.studentNo || '—' }}</div>
           <el-divider />
@@ -88,9 +88,12 @@ import { getProfile, updateProfile, changePassword } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import { GenderMap } from '@/utils/constants'
 import { collegeOptions } from '@/utils/options'
+import { usableMediaUrl } from '@/utils/media'
 
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
+/** 头像地址：占位域名视为无头像，自动回退为首字母 */
+const avatarSrc = computed(() => usableMediaUrl(userInfo.value?.avatar))
 const initial = computed(() => (userInfo.value?.nickname || userInfo.value?.username || '同').charAt(0))
 const genderLabel = computed(() => GenderMap[userInfo.value?.gender] || '未知')
 

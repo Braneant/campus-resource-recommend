@@ -18,7 +18,7 @@
       <div class="sl-user">
         <el-dropdown @command="onCommand">
           <span class="sl-user-trigger">
-            <el-avatar :size="32" :src="userInfo?.avatar || ''">
+            <el-avatar :size="32" :src="avatarSrc">
               {{ nicknameInitial }}
             </el-avatar>
             <span class="sl-nick">{{ userStore.userInfo?.nickname || '同学' }}</span>
@@ -53,12 +53,15 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
+import { usableMediaUrl } from '@/utils/media'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
 const userInfo = computed(() => userStore.userInfo)
+/** 头像地址：占位域名视为无头像，el-avatar 自动回退为首字母 */
+const avatarSrc = computed(() => usableMediaUrl(userStore.userInfo?.avatar))
 const activeIndex = computed(() => '/' + (route.path.split('/').slice(0, 3).join('/')))
 const nicknameInitial = computed(() => {
   const n = userStore.userInfo?.nickname || userStore.userInfo?.username || '同'

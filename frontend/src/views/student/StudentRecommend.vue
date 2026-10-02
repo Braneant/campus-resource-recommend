@@ -53,7 +53,7 @@
       <div v-for="(item, idx) in filtered" :key="item.resourceId" class="app-card rec-item">
         <div class="rec-rank" :class="{ top: idx < 3 }">{{ idx + 1 }}</div>
         <div class="rec-cover" @click="openDetail(item)">
-          <img v-if="item.coverUrl" :src="item.coverUrl" :alt="item.title" />
+          <img v-if="coverOf(item)" :src="coverOf(item)" :alt="item.title" @error="markCoverFailed(item)" />
           <div v-else class="rec-cover-ph">{{ srcMap[item.source]?.label }}</div>
         </div>
         <div class="rec-info" @click="openDetail(item)">
@@ -109,10 +109,21 @@ import { User, MagicStick, QuestionFilled, Refresh } from '@element-plus/icons-v
 import { personalRecommend, explainRecommend } from '@/api/recommend'
 import { useUserStore } from '@/store/user'
 import { RecommendSourceMap } from '@/utils/constants'
+import { usableMediaUrl } from '@/utils/media'
 
 const router = useRouter()
 const userStore = useUserStore()
 const srcMap = RecommendSourceMap
+
+/** 封面：占位域名视为无封面；加载失败后同样回退为文字占位 */
+const failedCovers = reactive({})
+function coverOf(item) {
+  if (failedCovers[item.resourceId]) return ''
+  return usableMediaUrl(item.coverUrl)
+}
+function markCoverFailed(item) {
+  failedCovers[item.resourceId] = true
+}
 
 const list = ref([])
 const loading = ref(false)

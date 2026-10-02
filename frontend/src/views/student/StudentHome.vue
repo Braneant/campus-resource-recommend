@@ -2,7 +2,14 @@
   <div class="page-container">
     <div class="hero app-card">
       <div class="hero-text">
-        <h1 class="brand-gradient">发现最适合你的学习资源</h1>
+        <h1 class="hero-title">
+          <span
+            v-for="(c, i) in heroChars"
+            :key="i"
+            class="hero-ch"
+            :style="{ color: c.color, animationDelay: i * 45 + 'ms' }"
+          >{{ c.ch }}</span>
+        </h1>
         <p>基于知识图谱与协同过滤，为每位同学精准推荐 · 共 {{ total }} 份资源等你探索</p>
         <div class="hero-search">
           <el-input v-model="filters.keyword" placeholder="搜索资源标题 / 关键词" :prefix-icon="Search" clearable @keyup.enter="load" @clear="load" />
@@ -55,14 +62,32 @@
           <el-button type="primary" plain :icon="Upload" @click="$router.push('/student/upload')">上传资源</el-button>
         </div>
 
-        <div v-loading="loading" class="res-grid">
+        <!-- 首次加载显示骨架屏，后续筛选加载保留列表并用遮罩 -->
+        <div v-if="loading && list.length === 0" class="res-grid">
+          <div v-for="n in pageSize" :key="'sk' + n" class="sk-card app-card">
+            <el-skeleton animated>
+              <template #template>
+                <el-skeleton-item variant="image" class="sk-cover" />
+                <div class="sk-body">
+                  <el-skeleton-item variant="h3" style="width:82%" />
+                  <el-skeleton-item variant="text" style="margin-top:10px;width:55%" />
+                  <el-skeleton-item variant="text" style="margin-top:8px;width:70%" />
+                </div>
+              </template>
+            </el-skeleton>
+          </div>
+        </div>
+
+        <div v-else v-loading="loading" class="res-grid">
           <ResourceCard
             v-for="r in list"
             :key="r.id"
             :resource="r"
             @open="openDetail"
           />
-          <el-empty v-if="!loading && list.length === 0" description="没有匹配的资源，换个条件试试~" />
+          <el-empty v-if="!loading && list.length === 0" description="没有匹配的资源，换个条件试试~">
+            <el-button plain @click="resetFilters">重置筛选条件</el-button>
+          </el-empty>
         </div>
 
         <el-pagination
@@ -101,6 +126,19 @@ const filters = reactive({
   keyword: '', type: null, collegeId: null, courseId: null,
   categoryId: null, sort: 'hot'
 })
+
+/** hero 标题：逐字着色（品牌蓝 → 知识图谱紫线性过渡）+ 逐字入场 */
+const heroChars = (() => {
+  const text = '发现最适合你的学习资源'
+  const from = [47, 109, 246]
+  const to = [139, 92, 246]
+  const chars = [...text]
+  return chars.map((ch, i) => {
+    const t = chars.length > 1 ? i / (chars.length - 1) : 0
+    const rgb = from.map((v, k) => Math.round(v + (to[k] - v) * t))
+    return { ch, color: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` }
+  })
+})()
 
 function load() {
   loading.value = true
@@ -144,11 +182,21 @@ onMounted(load)
 <style scoped>
 .hero { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px; margin-bottom: 18px;
   background: linear-gradient(120deg, #eef4ff, #e6f0ff); }
-.hero-text h1 { font-size: 24px; margin: 0 0 8px; }
+.hero-text h1 { margin: 0 0 8px; }
+.hero-title { font-size: 24px; font-weight: 800; line-height: 1.3; }
+.hero-ch { display: inline-block; animation: ch-in .5s cubic-bezier(.22, .8, .3, 1) both; }
+@keyframes ch-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
 .hero-text p { color: var(--c-text-sub); margin: 0 0 16px; font-size: 13px; }
 .hero-search { display: flex; gap: 10px; max-width: 460px; }
 .hero-search .el-input { flex: 1; }
-.hero-img { width: 64px; height: 64px; opacity: .9; }
+.hero-img { width: 64px; height: 64px; opacity: .9; animation: hero-float 3.6s ease-in-out infinite; }
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
 .square { display: flex; gap: 18px; align-items: flex-start; }
 .filters { width: 240px; flex-shrink: 0; padding: 18px 18px 22px; }
 .filters-title { font-weight: 700; margin-bottom: 14px; font-size: 15px; }
@@ -158,4 +206,15 @@ onMounted(load)
 .list-count b { color: var(--c-primary); }
 .res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; min-height: 200px; }
 .list-page { margin-top: 22px; justify-content: center; }
+
+/* 骨架屏卡片（与真实卡片同尺寸，避免加载时跳动） */
+.sk-card { border-radius: 12px; overflow: hidden; }
+.sk-cover { width: 100%; height: 132px; display: block; }
+.sk-body { padding: 12px; }
+
+/* 尊重系统「减弱动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .hero-ch { animation: none; }
+  .hero-img { animation: none; }
+}
 </style>

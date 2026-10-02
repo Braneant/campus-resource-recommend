@@ -1,6 +1,8 @@
 <template>
-  <div class="auth-wrap">
-    <!-- 极光背景层：WebGL 不支持或动效关闭时自动隐藏，回退为静态渐变 -->
+  <div class="auth-wrap" :class="{ 'motion-on': motionEnabled }">
+    <!-- 底层：纯 CSS 极光底（任何环境都可见，保证无 WebGL 也有视觉效果） -->
+    <div class="auth-bg-css" aria-hidden="true"></div>
+    <!-- 增强层：WebGL 动态极光（不支持或关闭动效时自动隐藏，露出下面的 CSS 极光底） -->
     <div v-if="showAurora" class="auth-bg" aria-hidden="true">
       <Aurora :color-stops="auroraStops" :speed="0.5" :amplitude="1.75" :blend="0.46" />
     </div>
@@ -47,7 +49,7 @@ import { User, Lock, CircleCheck } from '@element-plus/icons-vue'
 import { login } from '@/api/auth'
 import { useUserStore } from '@/store/user'
 import Aurora from '@/components/bits/Aurora.vue'
-import { canUseAurora } from '@/utils/motion'
+import { canUseAurora, MOTION_ENABLED } from '@/utils/motion'
 
 const router = useRouter()
 const route = useRoute()
@@ -57,8 +59,10 @@ const loading = ref(false)
 
 /** 极光配色：浅蓝 → 品牌蓝 → 知识图谱紫，三色在白底上均可辨识 */
 const auroraStops = ['#5b8def', '#2f6df6', '#8b5cf6']
-/** 是否启用极光背景（关闭动效开关或浏览器不支持 WebGL 时自动降级） */
+/** WebGL 动态极光增强层：关闭动效开关或浏览器不支持 WebGL 时自动隐藏，露出 CSS 极光底 */
 const showAurora = canUseAurora()
+/** 全局动效开关：控制 CSS 极光底的缓慢漂移；关闭后仅保留静态极光（外观不变、无动画） */
+const motionEnabled = MOTION_ENABLED
 
 const form = reactive({ username: '', password: '' })
 const rules = {
@@ -90,7 +94,24 @@ async function onSubmit() {
   position: relative; overflow: hidden;
   background: linear-gradient(135deg, #d9e6ff 0%, #e9eefb 55%, #e2e6ff 100%); padding: 24px; }
 
-/* 极光背景层（置于最底，轻微放大让光带占据视觉重心） */
+/* 极光底色层：纯 CSS 实现，任何环境（含无 WebGL、系统减弱动效）都能看到，保证不会「没效果」 */
+.auth-bg-css { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(46% 38% at 14% 24%, rgba(91,141,239,.62), rgba(91,141,239,0) 72%),
+    radial-gradient(42% 34% at 84% 20%, rgba(139,92,246,.46), rgba(139,92,246,0) 72%),
+    radial-gradient(52% 44% at 64% 86%, rgba(47,109,246,.40), rgba(47,109,246,0) 74%),
+    radial-gradient(36% 30% at 32% 78%, rgba(45,190,170,.24), rgba(45,190,170,0) 72%),
+    linear-gradient(135deg, #dbe6ff 0%, #eef3ff 55%, #e4e8ff 100%); }
+
+/* 动效开启时，CSS 极光底缓慢漂移（仅 transform，走合成层，不影响布局与绘制性能） */
+.motion-on .auth-bg-css { animation: aurora-drift 26s ease-in-out infinite alternate; }
+
+@keyframes aurora-drift {
+  from { transform: scale(1.06) translate3d(-1.6%, -1.2%, 0); }
+  to { transform: scale(1.16) translate3d(1.6%, 1.4%, 0); }
+}
+
+/* WebGL 极光增强层（叠在 CSS 底之上，轻微放大让光带占据视觉重心） */
 .auth-bg { position: absolute; inset: 0; z-index: 0; opacity: .95;
   transform: scale(1.15) translateY(2%); transform-origin: 50% 48%; }
 
@@ -107,10 +128,11 @@ async function onSubmit() {
   to { opacity: 1; transform: none; }
 }
 
-/* 动效尊重系统「减弱动态效果」偏好 */
+/* 尊重系统「减弱动态效果」偏好：只停动画，不隐藏背景（保留静态极光底，避免「看不出变化」） */
 @media (prefers-reduced-motion: reduce) {
   .auth-card { animation: none; }
   .auth-bg { display: none; }
+  .motion-on .auth-bg-css { animation: none; }
 }
 
 .auth-left { width: 320px; padding: 40px 32px; color: #fff;

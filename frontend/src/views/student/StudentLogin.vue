@@ -30,11 +30,11 @@
           <el-button type="primary" class="auth-submit" :loading="loading" @click="onSubmit">登 录</el-button>
         </el-form>
         <div class="auth-links">
-          <span @click="go('StudentRegister')">立即注册</span>
-          <span @click="go('StudentForgot')">找回密码</span>
+          <span class="link-btn" tabindex="0" role="link" @click="go('StudentRegister')" @keydown.enter.prevent="go('StudentRegister')" @keydown.space.prevent="go('StudentRegister')">立即注册</span>
+          <span class="link-btn" tabindex="0" role="link" @click="go('StudentForgot')" @keydown.enter.prevent="go('StudentForgot')" @keydown.space.prevent="go('StudentForgot')">找回密码</span>
         </div>
         <div class="auth-admin">
-          <el-link type="info" @click="go('AdminLogin')">我是管理员 →</el-link>
+          <el-link type="info" tabindex="0" @click="go('AdminLogin')" @keydown.enter.prevent="go('AdminLogin')">我是管理员 →</el-link>
         </div>
       </div>
     </div>

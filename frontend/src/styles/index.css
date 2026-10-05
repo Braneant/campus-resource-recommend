@@ -11,12 +11,55 @@
   --c-bg: #f4f7fc;
   --c-card: #ffffff;
   --c-text: #2b3445;
-  --c-text-sub: #6b7689;
+  /* 次要文字：原 #6b7689 在页面底 #f4f7fc 上对比度仅 4.27（低于 AA 4.5），改为 #606b7e（5.01） */
+  --c-text-sub: #606b7e;
   --c-border: #e6ecf5;
-  /* 推荐来源标签色 */
+  --c-border-strong: #8a94ab;   /* 仅用于输入框等「必须被识别出边界」的控件，白底对比度 3.04（AA 非文本要求 3:1） */
+
+  /* 交互态：hover 应“加深”而非“变亮”（变亮会使白字掉到 3.23，不达 AA） */
+  --c-primary-hover: #2a5fd8;   /* 白字对比度 5.63 */
+  --c-primary-active: #1f52d0;  /* 白字对比度 6.61 */
+
+  /* 推荐来源色（仅用于图例/图表等大面积场景，不做小字背景） */
   --c-cf: #2f6df6;   /* 协同过滤 */
   --c-kg: #8b5cf6;   /* 知识图谱 */
   --c-hot: #f5a623;  /* 热度 */
+
+  /* ===== 徽章：浅底 + 深字（12px 小字需 4.5:1，实测值见注释）===== */
+  --badge-cf-fg: #1f52d0;   --badge-cf-bg: #eaf1ff;   /* 5.83 */
+  --badge-kg-fg: #6d3fd4;   --badge-kg-bg: #f3edff;   /* 5.55 */
+  --badge-hot-fg: #8a4d00;  --badge-hot-bg: #fff5e6;  /* 6.19 */
+  --badge-ok-fg: #0d7f5b;   --badge-ok-bg: #e8f7f1;   /* 4.52 */
+  --badge-err-fg: #c62f27;  --badge-err-bg: #feeceb;  /* 4.80 */
+  --badge-info-fg: #5c6b85; --badge-info-bg: #eef1f6; /* 4.76 */
+
+  /* ===== 间距（4px 基数，页面只用这几个值）===== */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+
+  /* ===== 字号阶梯 ===== */
+  --fs-display: 28px; --lh-display: 36px;
+  --fs-h1: 20px; --lh-h1: 28px;
+  --fs-h2: 16px; --lh-h2: 24px;
+  --fs-h3: 14px; --lh-h3: 22px;
+  --fs-body: 14px; --lh-body: 22px;
+  --fs-cap: 13px;  --lh-cap: 20px;
+  --fs-micro: 12px; --lh-micro: 18px;
+
+  /* ===== 圆角 ===== */
+  --r-xs: 4px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-full: 999px;
+
+  /* ===== 层级阴影（中性色，原来的蓝色阴影会让白卡泛蓝、整页发脏）===== */
+  --e1: 0 1px 2px rgba(31, 42, 68, .06);
+  --e2: 0 4px 12px rgba(31, 42, 68, .08);
+  --e3: 0 12px 32px rgba(31, 42, 68, .12);
+
+  /* ===== 层级 ===== */
+  --z-header: 100; --z-dropdown: 200; --z-mask: 1000; --z-dialog: 1010; --z-message: 1100;
+
+  /* ===== 动效 ===== */
+  --du-fast: 150ms; --du-base: 200ms; --du-slow: 300ms;
+  --ease: cubic-bezier(.22, .8, .3, 1);
 }
 
 * { box-sizing: border-box; }
@@ -36,8 +79,8 @@ a { text-decoration: none; color: var(--c-primary); }
 /* 通用卡片阴影与卡片风格 */
 .app-card {
   background: var(--c-card);
-  border-radius: 12px;
-  box-shadow: 0 4px 18px rgba(47, 109, 246, 0.06);
+  border-radius: var(--r-md);
+  box-shadow: var(--e1);
   border: 1px solid var(--c-border);
 }
 
@@ -45,9 +88,10 @@ a { text-decoration: none; color: var(--c-primary); }
 .el-button--primary {
   --el-button-bg-color: var(--c-primary);
   --el-button-border-color: var(--c-primary);
-  --el-button-hover-bg-color: var(--c-primary-light);
-  --el-button-hover-border-color: var(--c-primary-light);
-  --el-button-active-bg-color: var(--c-primary-dark);
+  /* hover/active 改为加深：原来的 hover 变浅会让白字掉到 3.23，不达 AA */
+  --el-button-hover-bg-color: var(--c-primary-hover);
+  --el-button-hover-border-color: var(--c-primary-hover);
+  --el-button-active-bg-color: var(--c-primary-active);
 }
 
 /* 页面容器 */
@@ -70,18 +114,21 @@ a { text-decoration: none; color: var(--c-primary); }
   margin: 0 0 18px;
 }
 
-/* 推荐来源标签 */
+/* 推荐来源标签：浅底 + 深字
+   原方案为实心底 + 白字，实测白字在 #f5a623 上仅 2.03、#8b5cf6 上仅 4.23，均不达 AA；
+   改为浅底深字后：协同过滤 5.83 / 知识图谱 5.55 / 热度加权 6.19 */
 .src-tag {
   display: inline-block;
   padding: 1px 9px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: var(--r-full);
+  font-size: var(--fs-micro);
+  font-weight: 500;
   line-height: 18px;
+  border: 1px solid transparent;   /* 覆盖 el-tag 自带的类型边框色 */
 }
-.src-tag.cf { color: #fff; background: var(--c-cf); }
-.src-tag.kg { color: #fff; background: var(--c-kg); }
-.src-tag.hot { color: #fff; background: var(--c-hot); }
+.src-tag.cf  { color: var(--badge-cf-fg);  background: var(--badge-cf-bg); }
+.src-tag.kg  { color: var(--badge-kg-fg);  background: var(--badge-kg-bg); }
+.src-tag.hot { color: var(--badge-hot-fg); background: var(--badge-hot-bg); }
 
 /* 渐变标题文字 */
 .brand-gradient {
@@ -94,3 +141,57 @@ a { text-decoration: none; color: var(--c-primary); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* ============================================================
+   P0 可访问性修复
+   ============================================================ */
+
+/* 键盘焦点必须可见（WCAG 2.4.7）。本文件在 element-plus/dist/index.css 之后加载，
+   同权重的 outline 可覆盖组件库的 outline:none。输入类控件不在此列——
+   Element Plus 已为其提供边框 + 内阴影的焦点态，避免出现"双焦点环"。 */
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* Element Plus 实心徽章（effect="dark"）：统一替换为满足 AA 的深色值
+   替换后白字对比度：成功 5.00 / 警告 5.14 / 危险 4.65 / 信息 5.39
+   （原值分别为 2.35 / 2.03 / 3.36 / 2.81，均不达标） */
+.el-tag--success.el-tag--dark { --el-tag-bg-color: #0d7f5b; --el-tag-border-color: #0d7f5b; }
+.el-tag--warning.el-tag--dark { --el-tag-bg-color: #a35c00; --el-tag-border-color: #a35c00; }
+.el-tag--danger.el-tag--dark  { --el-tag-bg-color: #d9362e; --el-tag-border-color: #d9362e; }
+.el-tag--info.el-tag--dark    { --el-tag-bg-color: #5c6b85; --el-tag-border-color: #5c6b85; }
+
+/* 输入类控件的边界需要能被识别（WCAG 1.4.11，非文本对比度 ≥3:1）。
+   仅作用于输入控件，卡片/分割线等装饰性边框仍用 --c-border，保持整体柔和。 */
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  --el-input-border-color: var(--c-border-strong);
+}
+
+/* 焦点态：Element Plus 自带的按钮焦点环是浅蓝 #a0cfff（白底对比度不足），
+   输入框聚焦仅换边框色、不够醒目。这里统一替换为品牌蓝实心环。
+   注意：本文件在 element-plus/dist/index.css 之后加载，按相同选择器权重即可覆盖。 */
+.el-input__wrapper.is-focus,
+.el-input__wrapper.is-focused,
+.el-textarea__inner:focus,
+.el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--c-primary) inset, 0 0 0 3px rgba(47, 109, 246, .28);
+}
+
+.el-button:focus-visible,
+.el-menu-item:focus-visible,
+.el-link:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* 可点击但原本不可聚焦的自定义控件（如登录页的文字链接）统一获得焦点环 */
+.link-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 3px;
+  border-radius: var(--r-xs);
+}

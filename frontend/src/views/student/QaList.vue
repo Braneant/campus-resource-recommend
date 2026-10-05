@@ -18,24 +18,34 @@
       </el-select>
     </div>
 
-    <div v-loading="loading" class="qa-list">
-      <div v-for="p in list" :key="p.id" class="app-card qa-item" @click="go(p.id)">
-        <div class="qa-stats">
-          <div class="qs-num">{{ p.replyCount || 0 }}</div><div class="qs-lbl">回答</div>
-          <div class="qs-num">{{ p.likeCount || 0 }}</div><div class="qs-lbl">赞</div>
-        </div>
-        <div class="qa-main">
-          <div class="qa-title">{{ p.title }}</div>
-          <div class="qa-content">{{ p.content }}</div>
-          <div class="qa-meta">
-            <span><el-icon><User /></el-icon>{{ p.studentName || p.author }}</span>
-            <span v-if="p.tags" class="qa-tags"><el-tag v-for="t in p.tags.split(',')" :key="t" size="small" effect="plain">{{ t }}</el-tag></span>
-            <span class="qa-time">{{ p.createTime }}</span>
-            <el-tag v-if="p.status === 1" size="small" type="info" effect="plain">已结帖</el-tag>
+    <div v-loading="loading && list.length > 0" class="qa-list">
+      <CardSkeleton v-if="loading && list.length === 0" :rows="4" />
+      <template v-else>
+        <div v-for="p in list" :key="p.id" class="app-card qa-item" @click="go(p.id)">
+          <div class="qa-stats">
+            <div class="qs-num">{{ p.replyCount || 0 }}</div><div class="qs-lbl">回答</div>
+            <div class="qs-num">{{ p.likeCount || 0 }}</div><div class="qs-lbl">赞</div>
+          </div>
+          <div class="qa-main">
+            <div class="qa-title">{{ p.title }}</div>
+            <div class="qa-content">{{ p.content }}</div>
+            <div class="qa-meta">
+              <span><el-icon><User /></el-icon>{{ p.studentName || p.author }}</span>
+              <span v-if="p.tags" class="qa-tags"><el-tag v-for="t in p.tags.split(',')" :key="t" size="small" effect="plain">{{ t }}</el-tag></span>
+              <span class="qa-time">{{ p.createTime }}</span>
+              <el-tag v-if="p.status === 1" size="small" type="info" effect="plain">已结帖</el-tag>
+            </div>
           </div>
         </div>
-      </div>
-      <el-empty v-if="!loading && list.length === 0" description="暂无帖子" />
+      </template>
+      <StateBlock
+        v-if="!loading && list.length === 0"
+        :type="filters.keyword || filters.categoryId != null || filters.status != null ? 'no-result' : 'empty'"
+        :title="filters.keyword || filters.categoryId != null || filters.status != null ? '没有匹配的帖子' : '还没有人提问'"
+        :description="filters.keyword || filters.categoryId != null || filters.status != null ? '可以更换关键词，或清空筛选条件后重新查找' : '把你的学习疑问抛出来，同学和老师都能看到'"
+        :action-text="filters.keyword || filters.categoryId != null || filters.status != null ? '清空筛选' : '发布帖子'"
+        @action="filters.keyword || filters.categoryId != null || filters.status != null ? resetFilters() : (dialog = true)"
+      />
     </div>
 
     <el-pagination v-if="total > 0" layout="prev,pager,next,total" :total="total" :page-size="pageSize"
@@ -83,6 +93,15 @@ const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }],
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
+}
+
+/** 清空筛选条件（供空态的行动按钮调用） */
+function resetFilters() {
+  filters.keyword = ''
+  filters.categoryId = null
+  filters.status = null
+  pageNum.value = 1
+  load()
 }
 
 function load() {

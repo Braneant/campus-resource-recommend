@@ -20,7 +20,9 @@
     </div>
 
     <div class="app-card table-card">
-      <el-table :data="tableData" v-loading="loading" border stripe>
+      <!-- 首次加载用骨架屏，避免"转圈遮罩"造成的布局跳动 -->
+      <TableSkeleton v-if="loading && tableData.length === 0" :rows="6" :columns="tableColumns.length + 1" />
+      <el-table v-else-if="tableData.length > 0" :data="tableData" border stripe v-loading="loading">
         <el-table-column v-for="col in tableColumns" :key="col.prop" :prop="col.prop" :label="col.label" :width="col.width" :min-width="col.minWidth">
           <template v-if="col.formatter" #default="{ row }">{{ col.formatter(row) }}</template>
         </el-table-column>
@@ -31,7 +33,15 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+      <!-- 空态：一句说明 + 一个可执行的下一步 -->
+      <StateBlock
+        v-else
+        type="empty"
+        :title="'还没有' + title + '数据'"
+        description="点击下方按钮添加第一条记录"
+        :action-text="addText"
+        @action="openCreate"
+      />
     </div>
 
     <!-- 新增 / 编辑 -->

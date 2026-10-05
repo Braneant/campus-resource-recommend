@@ -10,7 +10,8 @@
     </el-tabs>
 
     <div class="app-card table-card">
-      <el-table :data="list" v-loading="loading" border stripe>
+      <TableSkeleton v-if="loading && list.length === 0" :rows="6" :columns="6" />
+      <el-table v-else-if="list.length > 0" :data="list" border stripe v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="resourceNo" label="资源编号" width="140" />
         <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
@@ -33,7 +34,15 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && list.length === 0" description="暂无数据" />
+      <!-- 空态文案分场景：待审核为空是"好消息"，其他标签为空是"暂无数据" -->
+      <StateBlock
+        v-else
+        type="empty"
+        :title="tab === '0' ? '待审核队列已清空' : '暂无数据'"
+        :description="tab === '0' ? '所有已提交的资源都已处理完毕，无需操作' : '可切换上方标签查看其他状态的资源'"
+        action-text="刷新"
+        @action="load"
+      />
       <el-pagination v-if="total > 0" layout="prev,pager,next,total" :total="total" :page-size="pageSize"
         :current-page="pageNum" @current-change="onPage" background class="center mt16" />
     </div>

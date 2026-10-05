@@ -4,7 +4,8 @@
     <p class="page-subtitle">管理学生用户与管理员账号、角色与状态（扩展接口 /api/admin/user）</p>
 
     <div class="app-card table-card">
-      <el-table :data="list" v-loading="loading" border stripe>
+      <TableSkeleton v-if="loading && list.length === 0" :rows="6" :columns="5" />
+      <el-table v-else-if="list.length > 0" :data="list" border stripe v-loading="loading">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="username" label="用户名" width="140" />
         <el-table-column prop="nickname" label="昵称" width="140" />
@@ -28,7 +29,14 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-if="!loading && list.length === 0" description="暂无用户（后端需提供 /api/admin/user 列表接口）" />
+      <StateBlock
+        v-else
+        type="empty"
+        title="暂无用户数据"
+        description="用户列表由 /api/admin/user 提供，若确实为空可刷新重试"
+        action-text="刷新"
+        @action="load"
+      />
     </div>
   </div>
 </template>

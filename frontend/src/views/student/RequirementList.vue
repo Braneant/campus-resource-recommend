@@ -18,24 +18,34 @@
       </el-select>
     </div>
 
-    <div v-loading="loading" class="req-list">
-      <div v-for="r in list" :key="r.id" class="app-card req-item" @click="go(r.id)">
-        <div class="req-status" :class="r.status === 1 ? 'done' : 'open'">
-          <el-icon v-if="r.status === 1"><CircleCheck /></el-icon><el-icon v-else><Loading /></el-icon>
-          {{ r.status === 1 ? '已解决' : '待解决' }}
-        </div>
-        <div class="req-main">
-          <div class="req-title">{{ r.title }}</div>
-          <div class="req-content">{{ r.content }}</div>
-          <div class="req-meta">
-            <span><el-icon><User /></el-icon>{{ r.studentName }}</span>
-            <span><el-icon><School /></el-icon>{{ collegeName(r.collegeId) }}</span>
-            <span><el-icon><ChatDotRound /></el-icon>{{ r.replyCount || 0 }} 条回复</span>
-            <span class="req-time">{{ r.createTime }}</span>
+    <div v-loading="loading && list.length > 0" class="req-list">
+      <CardSkeleton v-if="loading && list.length === 0" :rows="4" />
+      <template v-else>
+        <div v-for="r in list" :key="r.id" class="app-card req-item" @click="go(r.id)">
+          <div class="req-status" :class="r.status === 1 ? 'done' : 'open'">
+            <el-icon v-if="r.status === 1"><CircleCheck /></el-icon><el-icon v-else><Loading /></el-icon>
+            {{ r.status === 1 ? '已解决' : '待解决' }}
+          </div>
+          <div class="req-main">
+            <div class="req-title">{{ r.title }}</div>
+            <div class="req-content">{{ r.content }}</div>
+            <div class="req-meta">
+              <span><el-icon><User /></el-icon>{{ r.studentName }}</span>
+              <span><el-icon><School /></el-icon>{{ collegeName(r.collegeId) }}</span>
+              <span><el-icon><ChatDotRound /></el-icon>{{ r.replyCount || 0 }} 条回复</span>
+              <span class="req-time">{{ r.createTime }}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <el-empty v-if="!loading && list.length === 0" description="暂无需求，快来发布第一条" />
+      </template>
+      <StateBlock
+        v-if="!loading && list.length === 0"
+        :type="filters.keyword || filters.collegeId != null || filters.status != null ? 'no-result' : 'empty'"
+        :title="filters.keyword || filters.collegeId != null || filters.status != null ? '没有匹配的需求' : '还没有人发布需求'"
+        :description="filters.keyword || filters.collegeId != null || filters.status != null ? '可以更换关键词，或清空筛选条件后重新查找' : '找不到某份资料？发布需求让同学帮你'"
+        :action-text="filters.keyword || filters.collegeId != null || filters.status != null ? '清空筛选' : '发布需求'"
+        @action="filters.keyword || filters.collegeId != null || filters.status != null ? resetFilters() : (dialog = true)"
+      />
     </div>
 
     <el-pagination v-if="total > 0" layout="prev,pager,next,total" :total="total" :page-size="pageSize"
@@ -94,6 +104,15 @@ const rules = {
 }
 
 function collegeName(id) { return collegeOptions.find((c) => c.id === id)?.name || '—' }
+
+/** 清空筛选条件（供空态的行动按钮调用） */
+function resetFilters() {
+  filters.keyword = ''
+  filters.collegeId = null
+  filters.status = null
+  pageNum.value = 1
+  load()
+}
 
 function load() {
   loading.value = true

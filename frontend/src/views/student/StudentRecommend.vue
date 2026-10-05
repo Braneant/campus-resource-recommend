@@ -89,7 +89,9 @@
 
     <!-- 推荐列表 -->
     <div class="rec-list">
-      <div v-for="(item, idx) in filtered" :key="item.resourceId" class="app-card rec-item">
+      <CardSkeleton v-if="loading && list.length === 0" :rows="4" />
+      <template v-else>
+        <div v-for="(item, idx) in filtered" :key="item.resourceId" class="app-card rec-item">
         <div class="rec-rank" :class="{ top: idx < 3 }">{{ idx + 1 }}</div>
         <div class="rec-cover" @click="openDetail(item)">
           <img v-if="coverOf(item)" :src="coverOf(item)" :alt="item.title" @error="markCoverFailed(item)" />
@@ -112,8 +114,16 @@
             :color="srcMap[item.source]?.color" :stroke-width="6" />
           <el-button text type="primary" :icon="QuestionFilled" @click="openExplain(item)">为什么推荐我</el-button>
         </div>
-      </div>
-      <el-empty v-if="filtered.length === 0" description="暂无推荐结果" />
+        </div>
+      </template>
+      <StateBlock
+        v-if="!loading && filtered.length === 0"
+        :type="list.length > 0 ? 'no-result' : 'empty'"
+        :title="list.length > 0 ? '当前筛选下没有结果' : '还没有可推荐的内容'"
+        :description="list.length > 0 ? '你选择的来源暂无推荐项，可切换回「全部」查看' : '可以先在资源广场浏览，或在上方选择感兴趣的知识点后重新计算'"
+        :action-text="list.length > 0 ? '查看全部来源' : '重新计算'"
+        @action="onEmptyAction"
+      />
     </div>
 
     <!-- 推荐解释抽屉 -->
@@ -272,6 +282,12 @@ function load() {
 }
 
 function applyFilter() {}
+
+/** 空态行动：有筛选就切回全部来源，否则重新计算推荐 */
+function onEmptyAction() {
+  if (list.value.length > 0) sourceFilter.value = 'all'
+  else load()
+}
 
 function renderCharts() {
   nextTick(() => {

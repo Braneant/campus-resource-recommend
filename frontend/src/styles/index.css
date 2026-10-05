@@ -96,9 +96,9 @@ a { text-decoration: none; color: var(--c-primary); }
 
 /* 页面容器 */
 .page-container {
-  max-width: 1240px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 20px 24px 40px;
+  padding: var(--sp-5) var(--sp-6) var(--sp-10);
 }
 
 .page-title {
@@ -194,4 +194,15 @@ a:focus-visible,
   outline: 2px solid var(--c-primary);
   outline-offset: 3px;
   border-radius: var(--r-xs);
+}
+
+/* 系统开启「减弱动态效果」时，统一把动画/过渡压到最短（内容与状态不变，只去掉运动）。
+   这是 WCAG 2.3.3 的要求；仅影响时长，不影响布局与功能。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

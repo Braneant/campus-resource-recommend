@@ -43,7 +43,10 @@
       <template #title><span class="al-nav-group">内容与知识治理</span></template>
       <el-menu-item index="/admin/audit">
         <el-icon><Stamp /></el-icon>
-        <template #title>资源审核</template>
+        <template #title>
+          <span class="al-item-title">资源审核</span>
+          <span v-if="pendingCount > 0" class="al-badge" :title="pendingCount + ' 条待审核'">{{ pendingCount }}</span>
+        </template>
       </el-menu-item>
       <el-menu-item index="/admin/graph">
         <el-icon><Share /></el-icon>
@@ -62,16 +65,34 @@
 </template>
 
 <script setup>
+import { onMounted, ref } from 'vue'
+import { auditList } from '@/api/admin'
+
 defineProps({
   activeIndex: { type: String, default: '' },
   collapsed: { type: Boolean, default: false }
 })
 defineEmits(['select'])
+
+/** 待审核数量角标：复用审核列表接口，只取总数（pageSize=1），失败静默不影响导航 */
+const pendingCount = ref(0)
+onMounted(() => {
+  auditList({ pageNum: 1, pageSize: 1, status: 0 })
+    .then((d) => { pendingCount.value = (d && d.total) || 0 })
+    .catch(() => {})
+})
 </script>
 
 <style scoped>
 .admin-nav { border-right: none; flex: 1; }
 .admin-nav :deep(.el-menu-item.is-active) { background: var(--c-primary) !important; }
+.al-item-title { display: inline-flex; align-items: center; }
+.al-badge {
+  display: inline-block; min-width: 18px; height: 18px; line-height: 18px;
+  margin-left: 8px; padding: 0 5px; border-radius: var(--r-full);
+  background: var(--badge-err-fg); color: #fff;
+  font-size: 11px; text-align: center;
+}
 .al-nav-group {
   display: block;
   padding: 10px 20px 4px;

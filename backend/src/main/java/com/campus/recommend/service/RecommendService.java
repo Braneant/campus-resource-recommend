@@ -5,6 +5,7 @@ import com.campus.recommend.common.BusinessException;
 import com.campus.recommend.common.ResultCode;
 import com.campus.recommend.entity.*;
 import com.campus.recommend.mapper.*;
+import com.campus.recommend.vo.GraphNode;
 import com.campus.recommend.vo.RecommendExplainVO;
 import com.campus.recommend.vo.RecommendItem;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +57,19 @@ public class RecommendService {
     /* ====================================================================== */
     /* 1. 个性化推荐（三路混合 + 加权融合）                                     */
     /* ====================================================================== */
+    /** 兼容旧调用：不带兴趣知识点，行为与改造前完全一致 */
     public List<RecommendItem> personalRecommend(Long userId, Integer topN) {
+        return personalRecommend(userId, topN, null);
+    }
+
+    /**
+     * 个性化推荐（三路混合 + 加权融合）
+     *
+     * @param interestKpIds 可选：用户勾选的感兴趣知识点。
+     *                      冷启动用户（无任何行为）的 CF 路与 KG 路都缺少输入，
+     *                      此时用这些知识点直接作为 KG 路种子，让新用户也能得到知识图谱语义推荐。
+     */
+    public List<RecommendItem> personalRecommend(Long userId, Integer topN, List<Long> interestKpIds) {
         topN = topN == null || topN < 1 ? defaultTopN : topN;
 
         // 全部资源（用于标题/属性补全，状态不限）
@@ -111,6 +124,12 @@ public class RecommendService {
             }
         }
 
+        // KG 路 · 兴趣种子（解决冷启动：无行为数据时，用勾选的知识点作为图谱入口）
+        Map<Long, String> kgSeedKp = new HashMap<>();
+        if (interestKpIds != null && !interestKpIds.isEmpty()) {
+            seedByInterestKp(interestKpIds, all, resByNo, kgRaw, kgTitle, kgHops, kgSeedKp);
+        }
+
         // Hot 路
         Map<Long, Double> hotRaw = buildHotScores(null);
 
@@ -146,7 +165,7 @@ public class RecommendService {
             it.setAvgRating(r.getAvgRating() == null ? null : r.getAvgRating().doubleValue());
             it.setRecommendScore(round2(finalScore));
             it.setSource(source);
-            it.setReason(buildReason(source, r, sCf, sKg, sHot, cfBestTitle, cfBestSim, kgTitle, kgHops));
+            it.setReason(buildReason(source, r, sCf, sKg, sHot, cfBestTitle, cfBestSim, kgTitle, kgHops, kgSeedKp));
             items.add(it);
         }
         items.sort((a, b) -> Double.compare(b.getRecommendScore(), a.getRecommendScore()));
@@ -437,6 +456,77 @@ public class RecommendService {
         return out;
     }
 
+    /* ====================================================================== */
+    /* 兴趣种子（冷启动 / 用户显式表达兴趣）                                     */
+    /* ====================================================================== */
+
+    /** 直接命中的知识点资源上限 */
+    private static final int SEED_LIMIT = 8;
+    /** 参与图谱扩展的种子资源上限（每颗种子一次 Cypher，控制查询开销） */
+    private static final int EXPAND_SEEDS = 4;
+
+    /**
+     * 把用户勾选的知识点接入 KG 路：
+     * ① 直接命中：资源的主知识点属于兴趣集合 → 给 KG 路最高原始分
+     * ② 一跳语义扩展：沿图谱（Resource → KnowledgePoint → … → Resource）找关联资源，按跳数衰减
+     * 两条都会写入 kgSeedKp，供可解释模块生成"因为你关注了知识点《X》"这类理由。
+     */
+    private void seedByInterestKp(List<Long> kpIds, List<LearningResource> all,
+                                  Map<String, LearningResource> resByNo,
+                                  Map<Long, Double> kgRaw, Map<Long, String> kgTitle,
+                                  Map<Long, Integer> kgHops, Map<Long, String> kgSeedKp) {
+        // 知识点名称存放在 Neo4j（MySQL 无知识点表），用于生成可解释理由
+        Map<Long, String> kpNames = new HashMap<>();
+        try {
+            for (GraphNode n : graphService.listNodes("KNOWLEDGE_POINT", null, 300)) {
+                try {
+                    kpNames.put(Long.valueOf(String.valueOf(n.getId())), n.getLabel());
+                } catch (Exception ignore) {
+                    // 非数字 id 跳过，不影响主流程
+                }
+            }
+        } catch (Exception e) {
+            log.warn("获取知识点名称失败，推荐理由将回退为通用描述", e);
+        }
+
+        Set<Long> kpSet = new HashSet<>(kpIds);
+        List<LearningResource> seeds = all.stream()
+                .filter(r -> r.getStatus() != null && r.getStatus() == 1)
+                .filter(r -> r.getPrimaryKpId() != null && kpSet.contains(r.getPrimaryKpId()))
+                .sorted((a, b) -> Integer.compare(
+                        b.getDownloadCount() == null ? 0 : b.getDownloadCount(),
+                        a.getDownloadCount() == null ? 0 : a.getDownloadCount()))
+                .limit(SEED_LIMIT)
+                .collect(Collectors.toList());
+
+        for (LearningResource r : seeds) {
+            String kpName = kpNames.getOrDefault(r.getPrimaryKpId(), "你关注的知识点");
+            kgRaw.merge(r.getId(), 1.0, Math::max);
+            kgHops.putIfAbsent(r.getId(), 1);
+            kgTitle.putIfAbsent(r.getId(), kpName);
+            kgSeedKp.putIfAbsent(r.getId(), kpName);
+        }
+
+        int expanded = 0;
+        for (LearningResource r : seeds) {
+            if (expanded++ >= EXPAND_SEEDS) break;
+            String kpName = kpNames.getOrDefault(r.getPrimaryKpId(), "你关注的知识点");
+            for (Map<String, Object> c : graphService.queryRelatedByResourceNo(r.getResourceNo(), 6)) {
+                LearningResource lr = resByNo.get(String.valueOf(c.get("resourceNo")));
+                if (lr == null || kgSeedKp.containsKey(lr.getId())) continue;
+                long hops = ((Number) c.get("hops")).longValue() + 1;
+                double heat = c.get("heat") == null ? 0.0 : ((Number) c.get("heat")).doubleValue();
+                double raw = 0.7 * (1.0 / (hops + 1)) + 0.3 * heat;
+                if (raw > kgRaw.getOrDefault(lr.getId(), -1.0)) {
+                    kgRaw.put(lr.getId(), raw);
+                    kgTitle.put(lr.getId(), r.getTitle());
+                    kgHops.put(lr.getId(), (int) hops);
+                    kgSeedKp.put(lr.getId(), kpName);
+                }
+            }
+        }
+    }
+
     /** 选取主导来源 */
     private String dominant(double cf, double kg, double hot) {
         double max = Math.max(Math.max(cf, kg), hot);
@@ -449,7 +539,8 @@ public class RecommendService {
     /** 生成可解释理由（规则模板） */
     private String buildReason(String source, LearningResource r, double sCf, double sKg, double sHot,
                                Map<Long, String> cfBestTitle, Map<Long, Double> cfBestSim,
-                               Map<Long, String> kgTitle, Map<Long, Integer> kgHops) {
+                               Map<Long, String> kgTitle, Map<Long, Integer> kgHops,
+                               Map<Long, String> kgSeedKp) {
         return switch (source) {
             case "cf" -> {
                 String t = cfBestTitle.getOrDefault(r.getId(), "");
@@ -457,8 +548,15 @@ public class RecommendService {
                 yield "因为你与《" + t + "》兴趣相似，" + (int) (sim * 100) + "% 的同类同学也选择了《" + r.getTitle() + "》";
             }
             case "kg" -> {
-                String t = kgTitle.getOrDefault(r.getId(), "");
                 int hops = kgHops.getOrDefault(r.getId(), 1);
+                String seedKp = kgSeedKp == null ? null : kgSeedKp.get(r.getId());
+                if (seedKp != null) {
+                    // 兴趣种子命中：区分"直接命中知识点"与"沿知识链关联"
+                    yield hops <= 1
+                            ? "因为你关注了知识点《" + seedKp + "》，为你优先推荐该知识点下的资源"
+                            : "与知识点《" + seedKp + "》下的资源存在知识链关联（" + hops + " 跳）";
+                }
+                String t = kgTitle.getOrDefault(r.getId(), "");
                 yield "与你看过的《" + t + "》存在知识链关联（" + hops + " 跳），属于相关/先修知识点推荐";
             }
             default -> "热门资源，下载量高、评分 " + (r.getAvgRating() == null ? "—" : r.getAvgRating());

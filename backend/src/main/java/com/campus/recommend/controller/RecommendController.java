@@ -20,15 +20,22 @@ public class RecommendController {
     @Autowired
     private RecommendService recommendService;
 
-    /** 8.1 个性化推荐（三路混合 + 加权融合 + 可解释） */
+    /**
+     * 8.1 个性化推荐（三路混合 + 加权融合 + 可解释）
+     *
+     * @param kpIds 可选。用户感兴趣的知识点 id 列表（逗号分隔，如 kpIds=1001,1002,1003）。
+     *              用于冷启动：无行为数据的新用户以此作为知识图谱路的种子。
+     *              不传时行为与改造前完全一致。
+     */
     @GetMapping("/personal")
     public Result<List<RecommendItem>> personal(@RequestParam(required = false) Long userId,
-                                                @RequestParam(required = false) Integer topN) {
+                                                @RequestParam(required = false) Integer topN,
+                                                @RequestParam(required = false) List<Long> kpIds) {
         Long uid = userId != null ? userId : LoginContext.getStudentId();
         if (uid == null) {
             return Result.error(1002, "缺少 userId 或未登录");
         }
-        return Result.success(recommendService.personalRecommend(uid, topN));
+        return Result.success(recommendService.personalRecommend(uid, topN, kpIds));
     }
 
     /** 8.2 热门推荐 */

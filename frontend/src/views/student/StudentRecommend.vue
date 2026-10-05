@@ -7,6 +7,45 @@
       <b style="color:var(--c-hot)">热度加权</b> 三路混合融合，为你量身推荐
     </p>
 
+    <!-- 冷启动引导条：把「算法缺少你的行为数据」翻译成用户可操作的一步 -->
+    <div v-if="!guideDismissed || appliedKpIds.length" class="guide app-card">
+      <div class="guide-main">
+        <div class="guide-title">
+          <el-icon><MagicStick /></el-icon>
+          {{ isColdStart ? '系统还不了解你，先告诉我你关心什么' : '调整推荐方向' }}
+        </div>
+        <div class="guide-desc">
+          {{ isColdStart
+            ? '你还没有收藏 / 下载 / 评分记录，协同过滤暂时无从计算（当前只能给出热门资源）。选择 1–3 个知识点，即可通过知识图谱为你个性化推荐。'
+            : '选择 1–3 个知识点，知识图谱路会优先推荐这些知识点下的资源及其关联内容。' }}
+        </div>
+        <div class="guide-form">
+          <el-select
+            v-model="selectedKpIds"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :multiple-limit="3"
+            placeholder="选择 1–3 个你关心的知识点"
+            class="guide-select"
+            aria-label="选择感兴趣的知识点"
+          >
+            <el-option v-for="kp in kpOptions" :key="kp.id" :label="kp.label" :value="String(kp.id)" />
+          </el-select>
+          <el-button type="primary" :loading="applying" :disabled="!selectedKpIds.length" @click="applyInterests">
+            应用并刷新推荐
+          </el-button>
+          <el-button v-if="appliedKpIds.length" text @click="clearInterests">清空兴趣</el-button>
+          <el-button v-else text @click="dismissGuide">暂不设置</el-button>
+        </div>
+      </div>
+      <div v-if="appliedKpIds.length" class="guide-current">
+        <span class="guide-current-label">已应用的兴趣</span>
+        <span v-for="id in appliedKpIds" :key="id" class="guide-chip">{{ labelOf(id) }}</span>
+      </div>
+    </div>
+
     <!-- 概览：三路来源可视化 -->
     <div class="overview">
       <div class="app-card ov-stat">
@@ -107,6 +146,7 @@ import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { User, MagicStick, QuestionFilled, Refresh } from '@element-plus/icons-vue'
 import { personalRecommend, explainRecommend } from '@/api/recommend'
+import { listGraphNodes } from '@/api/graph'
 import { useUserStore } from '@/store/user'
 import { RecommendSourceMap } from '@/utils/constants'
 import { usableMediaUrl } from '@/utils/media'
@@ -135,6 +175,73 @@ const filtered = computed(() =>
 
 const sourceCount = reactive({ cf: 0, kg: 0, hot: 0 })
 
+/* ---------------- 冷启动引导：兴趣知识点 ---------------- */
+const KP_STORE_KEY = 'recommend.interestKps'
+const GUIDE_DISMISS_KEY = 'recommend.guideDismissed'
+
+/** 可选知识点（来自知识图谱） */
+const kpOptions = ref([])
+/** 下拉框当前选择（未应用） */
+const selectedKpIds = ref([])
+/** 已应用并参与推荐计算的知识点 id，持久化到本地 */
+const appliedKpIds = ref(readStoredIds())
+const applying = ref(false)
+const guideDismissed = ref(localStorage.getItem(GUIDE_DISMISS_KEY) === '1')
+
+/** 冷启动判定：无协同过滤结果也无图谱结果，说明算法缺少用户行为输入 */
+const isColdStart = computed(() =>
+  list.value.length > 0 && sourceCount.cf === 0 && sourceCount.kg === 0
+)
+
+function readStoredIds() {
+  try {
+    const raw = localStorage.getItem(KP_STORE_KEY)
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr.map(String) : []
+  } catch (e) {
+    return []
+  }
+}
+
+function labelOf(id) {
+  const hit = kpOptions.value.find((k) => String(k.id) === String(id))
+  return hit ? hit.label : id
+}
+
+function loadKpOptions() {
+  listGraphNodes({ type: 'KNOWLEDGE_POINT', limit: 200 })
+    .then((data) => {
+      kpOptions.value = (data || []).map((n) => ({ id: String(n.id), label: n.label }))
+      // 回填下拉框：让"已应用的兴趣"在界面上可见可改
+      selectedKpIds.value = appliedKpIds.value.slice()
+    })
+    .catch(() => {})
+}
+
+function applyInterests() {
+  appliedKpIds.value = selectedKpIds.value.slice(0, 3)
+  localStorage.setItem(KP_STORE_KEY, JSON.stringify(appliedKpIds.value))
+  localStorage.removeItem(GUIDE_DISMISS_KEY)
+  guideDismissed.value = false
+  applying.value = true
+  ElMessage.success('已根据你的兴趣更新推荐')
+  // load() 的 finally 会复位 applying
+  load()
+}
+
+function clearInterests() {
+  appliedKpIds.value = []
+  selectedKpIds.value = []
+  localStorage.removeItem(KP_STORE_KEY)
+  ElMessage.info('已清空兴趣，将恢复默认推荐')
+  load()
+}
+
+function dismissGuide() {
+  guideDismissed.value = true
+  localStorage.setItem(GUIDE_DISMISS_KEY, '1')
+}
+
 // 图表
 const pieRef = ref(null)
 const barRef = ref(null)
@@ -144,10 +251,15 @@ let barChart = null
 function load() {
   if (!userStore.userId) {
     ElMessage.warning('请先登录')
+    applying.value = false
     return
   }
   loading.value = true
-  personalRecommend({ userId: userStore.userId, topN: topN.value })
+  const params = { userId: userStore.userId, topN: topN.value }
+  // 已应用的兴趣作为知识图谱路种子传给后端。
+  // 注意：axios 默认把数组序列化成 kpIds[]=1&kpIds[]=2，Spring 无法绑定，因此用逗号分隔字符串。
+  if (appliedKpIds.value.length) params.kpIds = appliedKpIds.value.join(',')
+  personalRecommend(params)
     .then((data) => {
       list.value = data || []
       sourceCount.cf = list.value.filter((i) => i.source === 'cf').length
@@ -156,7 +268,7 @@ function load() {
       renderCharts()
     })
     .catch(() => {})
-    .finally(() => { loading.value = false })
+    .finally(() => { loading.value = false; applying.value = false })
 }
 
 function applyFilter() {}
@@ -231,10 +343,29 @@ function openExplain(item) {
     .finally(() => { explainLoading.value = false })
 }
 
-onMounted(load)
+onMounted(() => {
+  loadKpOptions()
+  load()
+})
 </script>
 
 <style scoped>
+/* 冷启动引导条 */
+.guide { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-5); align-items: center;
+  padding: 16px 20px; margin-bottom: 16px; border-left: 3px solid var(--c-primary); }
+.guide-main { flex: 1; min-width: 280px; }
+.guide-title { display: flex; align-items: center; gap: 6px; font-size: var(--fs-h3); font-weight: 500; color: var(--c-text); }
+.guide-title .el-icon { color: var(--c-primary); }
+.guide-desc { font-size: var(--fs-cap); color: var(--c-text-sub); line-height: 1.65; margin: 6px 0 10px; }
+.guide-form { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.guide-select { width: 320px; max-width: 100%; }
+.guide-current { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  font-size: var(--fs-cap); color: var(--c-text-sub); }
+.guide-current-label { margin-right: 2px; }
+.guide-chip { display: inline-block; padding: 1px 9px; border-radius: var(--r-full);
+  font-size: var(--fs-micro); font-weight: 500; line-height: 18px;
+  color: var(--badge-kg-fg); background: var(--badge-kg-bg); }
+
 .overview { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .ov-stat { padding: 18px 20px; }
 .ov-stat-title { font-weight: 700; font-size: 15px; margin-bottom: 12px; }

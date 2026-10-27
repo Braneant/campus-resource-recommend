@@ -6,7 +6,6 @@
     role="link"
     tabindex="0"
     :aria-label="ready ? `知识图谱，${nodeCount} 个节点，${edgeCount} 条关系，点击查看` : '知识图谱'"
-    title="点击查看知识图谱"
     @pointermove="onMove"
     @pointerleave="onLeave"
     @click="openGraph"

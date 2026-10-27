@@ -498,7 +498,10 @@ onMounted(() => {
       start()
     }
   }
-  motionQuery.addEventListener?.('change', motionHandler)
+  if (motionQuery) {
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', motionHandler)
+    else if (motionQuery.addListener) motionQuery.addListener(motionHandler)
+  }
 
   start()
 })
@@ -508,7 +511,10 @@ onUnmounted(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler)
   if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler)
   if (pointerHandler) window.removeEventListener('pointermove', pointerHandler)
-  if (motionQuery && motionHandler) motionQuery.removeEventListener?.('change', motionHandler)
+  if (motionQuery && motionHandler) {
+    if (motionQuery.removeEventListener) motionQuery.removeEventListener('change', motionHandler)
+    else if (motionQuery.removeListener) motionQuery.removeListener(motionHandler)
+  }
 
   if (renderer) {
     const ctn = ctnDom.value

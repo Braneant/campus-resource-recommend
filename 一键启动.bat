@@ -152,6 +152,12 @@ if /i "%MODE%"=="diag" (
   echo         FAIL 后端未运行，8080 没有监听
   goto :backend_done
 )
+if exist "%ROOT%\backend\local-env.cmd" (
+    call "%ROOT%\backend\local-env.cmd"
+) else (
+    echo         WARN 缺少 backend\local-env.cmd，后端会因缺 MYSQL_PASSWORD 启动失败
+    echo              请把 backend\local-env.example.cmd 复制为 local-env.cmd 并填值
+)
 echo         ...  正在启动后端，约需 15 到 25 秒
 start "后端-8080" /min /d "%ROOT%" "%JAVA_EXE%" -jar "%JAR%" --server.port=8080
 call :wait_backend 8080 90

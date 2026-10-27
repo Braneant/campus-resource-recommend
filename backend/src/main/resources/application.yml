@@ -13,7 +13,7 @@ spring:
     # 业务库 MySQL 8
     url: jdbc:mysql://localhost:3306/campus_recommend?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&nullCatalogMeansCurrent=true
     username: root
-    password: REDACTED
+    password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
@@ -26,7 +26,7 @@ spring:
 
 # JWT 配置
 jwt:
-  secret: REDACTED
+  secret: ${JWT_SECRET}
   expiration: 86400000   # 24h（毫秒）
   issuer: campus-recommend
 
@@ -34,7 +34,7 @@ jwt:
 neo4j:
   uri: bolt://localhost:7687
   username: neo4j
-  password: neo4j123
+  password: ${NEO4J_PASSWORD}
   database: neo4j
 
 # 推荐算法权重与默认值

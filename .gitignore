@@ -23,6 +23,10 @@ yarn-error.log*
 backend/uploads/
 backend/neo4j/
 
+# 本地敏感配置（密码、密钥，不纳入版本库）
+backend/local-env.cmd
+application-local.yml
+
 # 系统文件
 .DS_Store
 Thumbs.db

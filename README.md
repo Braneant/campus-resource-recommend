@@ -90,17 +90,17 @@ CREATE DATABASE campus_recommend DEFAULT CHARACTER SET utf8mb4;
 
 在 Neo4j Browser 里执行 `data/neo4j_init.cypher`。默认密码改成 `neo4j123`，与后端配置保持一致。
 
-3. 修改配置
+3. 配置密码
 
-`backend/src/main/resources/application.yml` 里两处必须改成你自己的环境：
+`application.yml` 里数据库、Neo4j、JWT 的密钥都从环境变量读，不再写死。启动前设置三个变量：
 
-```yaml
-spring:
-  datasource:
-    password: 你的MySQL密码
-neo4j:
-  password: 你的Neo4j密码
+```bash
+set MYSQL_PASSWORD=你的MySQL密码
+set NEO4J_PASSWORD=你的Neo4j密码
+set JWT_SECRET=一段随机长字符串
 ```
+
+Windows 上更省事：把 `backend/local-env.example.cmd` 复制成 `backend/local-env.cmd` 填上真实值。这个文件已被 `.gitignore` 忽略，不会进仓库；`一键启动.bat` 会自动加载它。
 
 4. 启动后端
 

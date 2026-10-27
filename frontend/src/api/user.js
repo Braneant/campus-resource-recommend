@@ -12,3 +12,20 @@ export function updateProfile(data) {
 export function changePassword(data) {
   return request({ url: '/user/password', method: 'put', data })
 }
+
+// 个人中心的学习足迹
+export function getUserOverview() {
+  return request({ url: '/user/overview', method: 'get' })
+}
+
+export function getUserFavorites(params) {
+  return request({ url: '/user/favorites', method: 'get', params })
+}
+
+export function getUserDownloads(params) {
+  return request({ url: '/user/downloads', method: 'get', params })
+}
+
+export function getUserUploads(params) {
+  return request({ url: '/user/uploads', method: 'get', params })
+}

@@ -68,7 +68,8 @@ export const userApi = {
   create: (data) => request({ url: '/admin/user', method: 'post', data }),
   update: (id, data) => request({ url: `/admin/user/${id}`, method: 'put', data }),
   remove: (id) => request({ url: `/admin/user/${id}`, method: 'delete' }),
-  setRole: (id, data) => request({ url: `/admin/user/${id}/role`, method: 'put', data })
+  setRole: (id, data) => request({ url: `/admin/user/${id}/role`, method: 'put', data }),
+  setEnabled: (id, status) => request({ url: `/admin/user/${id}/enable`, method: 'put', data: { status } })
 }
 
 // ---- 数据大屏统计（ECharts）----

@@ -282,6 +282,14 @@ onMounted(() => {
 .gt-info { font-size: 13px; color: var(--c-text-sub); }
 .gt-info b { color: var(--c-primary); }
 .graph-canvas { flex: 1; min-height: 0; }
+
+@media (max-width: 900px) {
+  .graph-wrap { flex-direction: column; height: auto; min-height: 0; }
+  .graph-side { width: 100%; border-right: none; border-bottom: 1px solid var(--c-border); }
+  .graph-main { width: 100%; }
+  .graph-canvas { height: 58vh; min-height: 360px; flex: none; }
+  .graph-detail { width: 100%; border-left: none; border-top: 1px solid var(--c-border); }
+}
 .detail-type { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--c-text-sub); }
 .detail-name { font-size: 17px; font-weight: 700; margin: 8px 0; }
 .nb-list { display: flex; flex-direction: column; }

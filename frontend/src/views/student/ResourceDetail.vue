@@ -2,7 +2,7 @@
   <div class="page-container" v-loading="loading">
     <el-row :gutter="18" v-if="res">
       <!-- 主内容 -->
-      <el-col :span="17">
+      <el-col :xs="24" :sm="24" :md="17">
         <div class="app-card detail-card">
           <div class="detail-head">
             <div>
@@ -75,7 +75,7 @@
       </el-col>
 
       <!-- 侧栏：相关推荐 -->
-      <el-col :span="7">
+      <el-col :xs="24" :sm="24" :md="7" class="detail-side">
         <div class="app-card side-card">
           <div class="block-label"><el-icon><Connection /></el-icon> 相关知识资源</div>
           <div v-for="r in related" :key="r.resourceId" class="rel-item" @click="goResource(r.resourceId)">
@@ -142,11 +142,14 @@ function pct(v) { return (Math.min(1, v || 0) * 100).toFixed(0) + '%' }
 function load() {
   loading.value = true
   getResource(id)
-    .then((data) => { res.value = data; myRate.value = data.avgRating ? Math.round(data.avgRating) : 0 })
+    .then((data) => {
+      res.value = data
+      myRate.value = data.avgRating ? Math.round(data.avgRating) : 0
+      loadRelated(data.resourceNo)
+    })
     .catch(() => {})
     .finally(() => { loading.value = false })
   loadComments()
-  loadRelated()
   loadExplain()
 }
 
@@ -156,8 +159,8 @@ function loadComments() {
     .catch(() => {})
 }
 
-function loadRelated() {
-  relatedRecommend({ resourceId: id, topN: 6 })
+function loadRelated(resourceNo) {
+  relatedRecommend({ resourceId: resourceNo || id, topN: 6 })
     .then((d) => { related.value = d || [] })
     .catch(() => {})
 }
@@ -259,4 +262,7 @@ onMounted(load)
 .info-list li { display: flex; justify-content: space-between; padding: 9px 0; font-size: 13px; border-bottom: 1px dashed var(--c-border); }
 .info-list span { color: var(--c-text-sub); }
 .ml6 { margin-left: 6px; }
+@media (max-width: 991px) {
+  .detail-side { margin-top: 16px; }
+}
 </style>

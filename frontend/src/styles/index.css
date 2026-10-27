@@ -196,6 +196,14 @@ a:focus-visible,
   border-radius: var(--r-xs);
 }
 
+/* 学生端登录/注册在窄屏下隐藏左侧介绍栏，表单占满卡片。
+   登录页左侧是 320px 固定宽，390px 屏幕上会把表单挤到 140px。 */
+@media (max-width: 640px) {
+  .app-card.auth-card .auth-left { display: none; }
+  .app-card.auth-card .auth-right { width: 100%; padding: 32px 24px; }
+  .app-card.reg-card .el-col-12 { width: 100%; max-width: 100%; flex: 0 0 100%; }
+}
+
 /* 系统开启「减弱动态效果」时，统一把动画/过渡压到最短（内容与状态不变，只去掉运动）。
    这是 WCAG 2.3.3 的要求；仅影响时长，不影响布局与功能。 */
 @media (prefers-reduced-motion: reduce) {

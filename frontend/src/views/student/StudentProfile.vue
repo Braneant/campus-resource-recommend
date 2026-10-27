@@ -4,7 +4,7 @@
     <p class="page-subtitle">管理你的资料、账号安全与学习足迹</p>
 
     <el-row :gutter="18">
-      <el-col :span="9">
+      <el-col :xs="24" :sm="24" :md="9">
         <div class="app-card profile-card">
           <el-avatar :size="72" :src="avatarSrc">{{ initial }}</el-avatar>
           <div class="p-name">{{ userInfo?.nickname || userInfo?.username }}</div>
@@ -22,7 +22,7 @@
         </div>
       </el-col>
 
-      <el-col :span="15">
+      <el-col :xs="24" :sm="24" :md="15" class="profile-right">
         <div class="stat-row">
           <div class="app-card stat-box" v-for="s in stats" :key="s.label">
             <div class="stat-num">{{ s.value }}</div>
@@ -32,14 +32,24 @@
 
         <div class="app-card foot-card">
           <el-tabs v-model="tab">
-            <el-tab-pane label="我的收藏" name="fav">
-              <el-empty description="收藏列表接口待后端提供（/api/user/favorites）" :image-size="70" />
-            </el-tab-pane>
-            <el-tab-pane label="我的下载" name="dl">
-              <el-empty description="下载记录接口待后端提供（/api/user/downloads）" :image-size="70" />
-            </el-tab-pane>
-            <el-tab-pane label="我的上传" name="up">
-              <el-empty description="我的上传接口待后端提供（/api/user/uploads）" :image-size="70" />
+            <el-tab-pane v-for="pane in tabDefs" :key="pane.name" :label="pane.label" :name="pane.name">
+              <div v-loading="pane.loading" class="foot-list">
+                <div v-if="pane.list.length" class="foot-list-inner">
+                  <div v-for="r in pane.list" :key="r.id" class="foot-item" @click="goResource(r.id)">
+                    <div class="foot-main">
+                      <div class="foot-title">{{ r.title }}</div>
+                      <div class="foot-meta">
+                        <el-tag size="small" effect="plain">{{ typeLabel(r.type) }}</el-tag>
+                        <span>{{ r.author || '—' }}</span>
+                        <span class="foot-no">{{ r.resourceNo }}</span>
+                        <el-tag v-if="pane.name === 'up'" size="small" :type="statusTag(r.status)">{{ statusLabel(r.status) }}</el-tag>
+                      </div>
+                    </div>
+                    <el-icon class="foot-arrow"><ArrowRight /></el-icon>
+                  </div>
+                </div>
+                <el-empty v-else description="暂无记录" :image-size="70" />
+              </div>
             </el-tab-pane>
           </el-tabs>
         </div>
@@ -81,15 +91,20 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Edit, Key } from '@element-plus/icons-vue'
-import { getProfile, updateProfile, changePassword } from '@/api/user'
+import { Edit, Key, ArrowRight } from '@element-plus/icons-vue'
+import {
+  getProfile, updateProfile, changePassword,
+  getUserOverview, getUserFavorites, getUserDownloads, getUserUploads
+} from '@/api/user'
 import { useUserStore } from '@/store/user'
-import { GenderMap } from '@/utils/constants'
+import { GenderMap, ResourceTypeMap, ResourceStatusMap } from '@/utils/constants'
 import { collegeOptions } from '@/utils/options'
 import { usableMediaUrl } from '@/utils/media'
 
+const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
 /** 头像地址：占位域名视为无头像，自动回退为首字母 */
@@ -111,6 +126,11 @@ const stats = reactive([
 ])
 
 const tab = ref('fav')
+const tabDefs = reactive([
+  { name: 'fav', label: '我的收藏', list: [], loading: false },
+  { name: 'dl', label: '我的下载', list: [], loading: false },
+  { name: 'up', label: '我的上传', list: [], loading: false }
+])
 const editVisible = ref(false)
 const pwdVisible = ref(false)
 const loading = ref(false)
@@ -122,6 +142,35 @@ const pwdRules = {
   oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
   newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }, { min: 6, message: '至少 6 位', trigger: 'blur' }]
 }
+
+function typeLabel(t) { return ResourceTypeMap[t]?.label || '其他' }
+function statusLabel(s) { return ResourceStatusMap[s]?.label || '未知' }
+function statusTag(s) { return ResourceStatusMap[s]?.tag || 'info' }
+function goResource(id) { router.push(`/student/resource/${id}`) }
+
+function loadOverview() {
+  getUserOverview()
+    .then((d) => {
+      stats[0].value = d.favoriteCount ?? 0
+      stats[1].value = d.downloadCount ?? 0
+      stats[2].value = d.uploadCount ?? 0
+      stats[3].value = d.ratingCount ?? 0
+    })
+    .catch(() => {})
+}
+
+function loadTab(name) {
+  const pane = tabDefs.find((p) => p.name === name)
+  if (!pane) return
+  pane.loading = true
+  const api = name === 'fav' ? getUserFavorites : name === 'dl' ? getUserDownloads : getUserUploads
+  api({ pageNum: 1, pageSize: 100 })
+    .then((d) => { pane.list = d.list || [] })
+    .catch(() => {})
+    .finally(() => { pane.loading = false })
+}
+
+watch(tab, (name) => loadTab(name))
 
 function fillEdit() {
   const u = userInfo.value || {}
@@ -161,6 +210,8 @@ onMounted(() => {
     .then((u) => { userStore.setUserInfo(u); fillEdit() })
     .catch(() => {})
   fillEdit()
+  loadOverview()
+  loadTab('fav')
 })
 </script>
 
@@ -171,10 +222,28 @@ onMounted(() => {
 .p-list { list-style: none; padding: 0; margin: 0; text-align: left; }
 .p-list li { display: flex; justify-content: space-between; padding: 10px 0; font-size: 13px; border-bottom: 1px dashed var(--c-border); }
 .p-list span { color: var(--c-text-sub); }
+.p-list b { max-width: 66%; text-align: right; word-break: break-all; }
 .w100 { width: 100%; margin-top: 10px; }
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat-box { padding: 18px; text-align: center; }
 .stat-num { font-size: 26px; font-weight: 800; color: var(--c-primary); }
 .stat-label { font-size: 12px; color: var(--c-text-sub); margin-top: 4px; }
 .foot-card { padding: 18px 22px; min-height: 280px; }
+.foot-list { min-height: 220px; }
+.foot-list-inner { max-height: 460px; overflow-y: auto; }
+.foot-item { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 4px; border-bottom: 1px dashed var(--c-border); cursor: pointer; }
+.foot-item:hover .foot-title { color: var(--c-primary); }
+.foot-main { min-width: 0; }
+.foot-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foot-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; row-gap: 4px; margin-top: 5px; font-size: 12px; color: var(--c-text-sub); }
+.foot-no { font-family: var(--font-mono, monospace); font-size: 11px; }
+.foot-arrow { color: var(--c-text-sub); flex-shrink: 0; }
+@media (max-width: 991px) {
+  .profile-right { margin-top: 16px; }
+}
+@media (max-width: 560px) {
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+  .profile-card { padding: 20px 18px; }
+}
 </style>

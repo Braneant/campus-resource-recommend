@@ -212,8 +212,13 @@ public class RecommendService {
         topN = topN == null || topN < 1 ? defaultTopN : topN;
         LearningResource src = resourceMapper.selectOne(
                 new LambdaQueryWrapper<LearningResource>().eq(LearningResource::getResourceNo, resourceNo));
+        // 兼容调用方传数字主键的情况：详情页路由参数是 id，不是 resource_no
+        if (src == null && resourceNo != null && resourceNo.matches("\\d+")) {
+            src = resourceMapper.selectById(Long.parseLong(resourceNo));
+        }
         String srcTitle = src != null ? src.getTitle() : "";
-        List<Map<String, Object>> rels = graphService.queryRelatedWithRelation(resourceNo, topN);
+        String graphKey = src != null ? src.getResourceNo() : resourceNo;
+        List<Map<String, Object>> rels = graphService.queryRelatedWithRelation(graphKey, topN);
         Map<String, LearningResource> resByNo = resourceMapper.selectList(null).stream()
                 .collect(Collectors.toMap(LearningResource::getResourceNo, r -> r, (a, b) -> a));
         List<RecommendItem> items = new ArrayList<>();

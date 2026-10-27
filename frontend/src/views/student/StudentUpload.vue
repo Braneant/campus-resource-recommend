@@ -25,21 +25,21 @@
         </el-form-item>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="资源类型" prop="type">
               <el-select v-model="form.type" placeholder="选择类型" style="width:100%">
                 <el-option v-for="(v, k) in typeMap" :key="k" :label="v.label" :value="Number(k)" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="学院" prop="collegeId">
               <el-select v-model="form.collegeId" placeholder="选择学院" style="width:100%">
                 <el-option v-for="c in collegeOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="专业" prop="majorId">
               <el-select v-model="form.majorId" placeholder="选择专业" style="width:100%">
                 <el-option v-for="m in majorOptions" :key="m.id" :label="m.name" :value="m.id" />
@@ -49,21 +49,21 @@
         </el-row>
 
         <el-row :gutter="16">
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="课程" prop="courseId">
               <el-select v-model="form.courseId" placeholder="选择课程" style="width:100%">
                 <el-option v-for="c in courseOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="分类" prop="categoryId">
               <el-select v-model="form.categoryId" placeholder="选择分类" style="width:100%">
                 <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-form-item label="主知识点" prop="kpId">
               <el-input v-model.number="form.kpId" placeholder="知识点 ID，如 1003" />
             </el-form-item>

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <h2 class="page-title">用户权限管控</h2>
-    <p class="page-subtitle">管理学生用户与管理员账号、角色与状态（扩展接口 /api/admin/user）</p>
+    <p class="page-subtitle">管理学生账号的启用状态与删除操作（管理员账号由后台单独维护）</p>
 
     <div class="app-card table-card">
       <TableSkeleton v-if="loading && list.length === 0" :rows="6" :columns="5" />
@@ -11,20 +11,18 @@
         <el-table-column prop="nickname" label="昵称" width="140" />
         <el-table-column prop="studentNo" label="学号" width="130" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column label="角色" width="130">
-          <template #default="{ row }">
-            <el-tag v-if="row.role === 'ADMIN'" type="warning" effect="dark">{{ adminRoleLabel(row) }}</el-tag>
-            <el-tag v-else type="primary" effect="plain">学生</el-tag>
+        <el-table-column label="角色" width="100">
+          <template #default>
+            <el-tag type="primary" effect="plain">学生</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-switch :model-value="row.enabled !== 0" @change="(v) => toggleEnable(row, v)" />
+            <el-switch :model-value="row.status !== 0" :loading="switching === row.id" @change="(v) => toggleEnable(row, v)" />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.role !== 'ADMIN'" text type="warning" size="small" @click="promote(row)">设为管理员</el-button>
             <el-button text type="danger" size="small" :icon="Delete" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -46,14 +44,10 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import { userApi } from '@/api/admin'
-import { AdminRoleMap } from '@/utils/constants'
 
 const list = ref([])
 const loading = ref(false)
-
-function adminRoleLabel(row) {
-  return AdminRoleMap[row.adminRole] || '管理员'
-}
+const switching = ref(null)
 
 function load() {
   loading.value = true
@@ -64,15 +58,15 @@ function load() {
 }
 
 function toggleEnable(row, val) {
-  ElMessage.info('启用/停用接口待后端提供（/api/admin/user/{id}/enable）')
-}
-
-function promote(row) {
-  ElMessageBox.confirm(`将用户《${row.nickname || row.username}》设为管理员？`, '提示', { type: 'warning' })
-    .then(() => userApi.setRole(row.id, { role: 'ADMIN', adminRole: 2 })
-      .then(() => { ElMessage.success('已设为管理员'); load() })
-      .catch(() => {}))
+  const status = val ? 1 : 0
+  switching.value = row.id
+  userApi.setEnabled(row.id, status)
+    .then(() => {
+      row.status = status
+      ElMessage.success(status === 1 ? '已启用该用户' : '已停用该用户')
+    })
     .catch(() => {})
+    .finally(() => { switching.value = null })
 }
 
 function remove(row) {

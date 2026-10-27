@@ -199,6 +199,11 @@ onMounted(load)
   .hero-graph { width: 260px; height: 150px; margin-left: 10px; }
 }
 @media (max-width: 900px) {
+  .square { flex-direction: column; }
+  .square .filters { width: 100%; }
+  .list-area { width: 100%; }
+}
+@media (max-width: 900px) {
   .hero-graph { display: none; }
 }
 .square { display: flex; gap: 18px; align-items: flex-start; }

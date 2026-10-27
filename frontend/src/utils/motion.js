@@ -4,23 +4,45 @@
  */
 export const MOTION_ENABLED = true
 
-/**
- * 探测浏览器是否支持 WebGL（用于极光背景的优雅降级）
- * 不支持时自动回退为静态渐变背景，不会出现白屏或报错。
- */
-export function isWebGLAvailable() {
+/** 用户是否开启了系统的"减弱动态效果" */
+export function prefersReducedMotion() {
   try {
-    const canvas = document.createElement('canvas')
-    return !!(
-      window.WebGLRenderingContext &&
-      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
-    )
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   } catch (e) {
     return false
   }
 }
 
-/** 是否启用极光背景（开关开启 且 浏览器支持 WebGL） */
+/**
+ * 探测 WebGL2。极光着色器用了 #version 300 es，必须用 WebGL2。
+ * 只测 WebGL1 会误判：浏览器能建 WebGL1 上下文，但着色器编译会失败。
+ */
+export function isWebGL2Available() {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(window.WebGL2RenderingContext && canvas.getContext('webgl2'))
+  } catch (e) {
+    return false
+  }
+}
+
+/** 旧名字保留，避免其他页面引用时断掉；现在按 WebGL2 判断 */
+export function isWebGLAvailable() {
+  return isWebGL2Available()
+}
+
+/** 低配设备：跳过 bloom 后处理，DPR 上限也更低 */
+export function isLowPowerDevice() {
+  try {
+    const cores = navigator.hardwareConcurrency || 8
+    const memory = navigator.deviceMemory || 8
+    return cores <= 4 || memory <= 4
+  } catch (e) {
+    return false
+  }
+}
+
+/** 是否启用极光背景（开关开启、未减弱动效、且浏览器支持 WebGL2） */
 export function canUseAurora() {
-  return MOTION_ENABLED && isWebGLAvailable()
+  return MOTION_ENABLED && !prefersReducedMotion() && isWebGL2Available()
 }

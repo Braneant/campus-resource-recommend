@@ -4,7 +4,7 @@
     <div class="auth-bg-css" aria-hidden="true"></div>
     <!-- 增强层：WebGL 明亮极光（不支持时自动隐藏，露出 CSS 极光底） -->
     <div v-if="showAurora" class="auth-bg" aria-hidden="true">
-      <Aurora :color-stops="auroraStops" :speed="0.6" :amplitude="1.2" :blend="0.55" />
+      <Aurora :color-stops="auroraStops" :speed="0.6" :amplitude="1.0" :blend="0.68" warm="#2bbf8a" :bloom="0.45" :intensity="0.55" :grain="0.022" />
     </div>
 
     <div class="auth-card app-card" style="width:440px">

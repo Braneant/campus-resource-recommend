@@ -16,7 +16,7 @@
           <el-button type="primary" :icon="Search" @click="load">搜索</el-button>
         </div>
       </div>
-      <img class="hero-img" src="/favicon.svg" alt="" />
+      <KnowledgeHero class="hero-graph" />
     </div>
 
     <div class="square">
@@ -110,6 +110,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Upload, RefreshLeft, User } from '@element-plus/icons-vue'
 import ResourceCard from '@/components/ResourceCard.vue'
+import KnowledgeHero from '@/components/bits/KnowledgeHero.vue'
 import { searchResource } from '@/api/resource'
 import { ResourceTypeMap } from '@/utils/constants'
 import { categoryOptions, collegeOptions, courseOptions } from '@/utils/options'
@@ -180,8 +181,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-.hero { display: flex; align-items: center; justify-content: space-between; padding: 26px 30px; margin-bottom: 18px;
-  background: linear-gradient(120deg, #eef4ff, #e6f0ff); }
+.hero { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 26px 30px; margin-bottom: 18px;
+  background: linear-gradient(120deg, #eef4ff, #e6f0ff); overflow: hidden; }
+.hero-text { flex: 1; min-width: 0; }
 .hero-text h1 { margin: 0 0 8px; }
 .hero-title { font-size: 24px; font-weight: 800; line-height: 1.3; }
 .hero-ch { display: inline-block; animation: ch-in .5s cubic-bezier(.22, .8, .3, 1) both; }
@@ -192,10 +194,12 @@ onMounted(load)
 .hero-text p { color: var(--c-text-sub); margin: 0 0 16px; font-size: 13px; }
 .hero-search { display: flex; gap: 10px; max-width: 460px; }
 .hero-search .el-input { flex: 1; }
-.hero-img { width: 64px; height: 64px; opacity: .9; animation: hero-float 3.6s ease-in-out infinite; }
-@keyframes hero-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+.hero-graph { width: 320px; height: 160px; flex-shrink: 0; margin-left: 14px; }
+@media (max-width: 1100px) {
+  .hero-graph { width: 260px; height: 150px; margin-left: 10px; }
+}
+@media (max-width: 900px) {
+  .hero-graph { display: none; }
 }
 .square { display: flex; gap: 18px; align-items: flex-start; }
 .filters { width: 240px; flex-shrink: 0; padding: 18px 18px 22px; }
@@ -215,6 +219,5 @@ onMounted(load)
 /* 尊重系统「减弱动态效果」偏好 */
 @media (prefers-reduced-motion: reduce) {
   .hero-ch { animation: none; }
-  .hero-img { animation: none; }
 }
 </style>

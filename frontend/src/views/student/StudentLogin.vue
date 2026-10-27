@@ -4,9 +4,8 @@
     <div class="auth-bg-css" aria-hidden="true"></div>
     <!-- 增强层：WebGL 动态极光（不支持或关闭动效时自动隐藏，露出下面的 CSS 极光底） -->
     <div v-if="showAurora" class="auth-bg" aria-hidden="true">
-      <Aurora :color-stops="auroraStops" :speed="0.5" :amplitude="1.75" :blend="0.46" />
+      <Aurora :color-stops="auroraStops" :speed="0.5" :amplitude="1.6" :blend="0.5" warm="#ffd9a0" :bloom="0.45" :grain="0.03" />
     </div>
-    <div class="auth-veil" aria-hidden="true"></div>
 
     <div class="auth-card app-card">
       <div class="auth-left">
@@ -92,7 +91,7 @@ async function onSubmit() {
 <style scoped>
 .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
-  background: linear-gradient(135deg, #d9e6ff 0%, #e9eefb 55%, #e2e6ff 100%); padding: 24px; }
+  background: linear-gradient(135deg, #cfe0ff 0%, #e2ecff 55%, #dfe6ff 100%); padding: 24px; }
 
 /* 极光底色层：纯 CSS 实现，任何环境（含无 WebGL、系统减弱动效）都能看到，保证不会「没效果」 */
 .auth-bg-css { position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -114,10 +113,6 @@ async function onSubmit() {
 /* WebGL 极光增强层（叠在 CSS 底之上，轻微放大让光带占据视觉重心） */
 .auth-bg { position: absolute; inset: 0; z-index: 0; opacity: .95;
   transform: scale(1.15) translateY(2%); transform-origin: 50% 48%; }
-
-/* 白色柔化层：仅在卡片区域加强，保证表单可读性，四周保留极光可见度 */
-.auth-veil { position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: radial-gradient(ellipse 44% 38% at 50% 50%, rgba(255,255,255,.58) 0%, rgba(255,255,255,.2) 62%, rgba(255,255,255,0) 100%); }
 
 .auth-card { position: relative; z-index: 1; display: flex; width: 820px; max-width: 100%;
   border-radius: 16px; overflow: hidden;

@@ -21,7 +21,7 @@
           </el-select>
           <el-button type="primary" class="w100 mt8" :icon="Search" :loading="searching" @click="searchNodes">搜索</el-button>
           <div class="node-result">
-            <div v-for="n in searchRes" :key="n.id + n.type" class="node-res-item" @click="expandNode({ id: String(n.id), _type: normType(n.type), name: n.label })">
+            <div v-for="n in searchRes" :key="n.id + n.type" class="node-res-item" @click="expandNode({ id: String(n.id), _rid: String(n.id), _type: normType(n.type), name: n.label })">
               <span class="nr-dot" :style="{background: colorOf(normType(n.type))}"></span>
               <span class="nr-label">{{ n.label }}</span>
               <span class="nr-type">{{ nodeTypeMap[normType(n.type)] }}</span>
@@ -209,7 +209,9 @@ function expandNode(node) {
     nodes: (es || []).map((x) => ({
       id: x.target,
       type: x.targetType || neighborType(node._type, x.relType),
-      label: String(x.target)
+      // 用后端返回的显示名，拿不到才退回 id。之前直接写 String(x.target)，
+      // 于是展开出来的课程/知识点都显示成一串数字。
+      label: x.targetLabel || String(x.target)
     })),
     edges: (es || []).map((x) => ({
       source: x.source,

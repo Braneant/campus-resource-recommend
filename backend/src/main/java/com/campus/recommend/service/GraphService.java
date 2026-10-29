@@ -86,6 +86,8 @@ public class GraphService {
             e.setTarget(nodeLogicalId(b));
             e.setSourceType(a.labels().iterator().next());
             e.setTargetType(b.labels().iterator().next());
+            e.setSourceLabel(nodeDisplayName(a));
+            e.setTargetLabel(nodeDisplayName(b));
             e.setRelType(r.type());
             e.setLabel(relLabel(r.type()));
             edges.add(e);
@@ -112,9 +114,11 @@ public class GraphService {
             List<Relationship> rs = rec.get("rs").asList(Value::asRelationship);
             Map<Long, String> elemToLogical = new HashMap<>();
             Map<Long, String> elemToType = new HashMap<>();
+            Map<Long, String> elemToLabel = new HashMap<>();
             for (Node n : ns) {
                 elemToLogical.put(n.id(), nodeLogicalId(n));
                 elemToType.put(n.id(), n.labels().iterator().next());
+                elemToLabel.put(n.id(), nodeDisplayName(n));
                 nodeMap.put(n.id(), toGraphNode(n));
             }
             for (Relationship r : rs) {
@@ -123,6 +127,8 @@ public class GraphService {
                 e.setTarget(elemToLogical.getOrDefault(r.endNodeId(), String.valueOf(r.endNodeId())));
                 e.setSourceType(elemToType.get(r.startNodeId()));
                 e.setTargetType(elemToType.get(r.endNodeId()));
+                e.setSourceLabel(elemToLabel.get(r.startNodeId()));
+                e.setTargetLabel(elemToLabel.get(r.endNodeId()));
                 e.setRelType(r.type());
                 e.setLabel(relLabel(r.type()));
                 edgeList.add(e);
@@ -307,10 +313,7 @@ public class GraphService {
     private GraphNode toGraphNode(Node node) {
         String label = node.labels().iterator().next();
         String id = nodeLogicalId(node);
-        String nameLabel;
-        if (node.containsKey("title")) nameLabel = node.get("title").asString();
-        else if (node.containsKey("name")) nameLabel = node.get("name").asString();
-        else nameLabel = id;
+        String nameLabel = nodeDisplayName(node);
         Double heat = node.containsKey("heat") ? node.get("heat").asDouble() : null;
         GraphNode gn = new GraphNode();
         gn.setId(id);
@@ -319,6 +322,17 @@ public class GraphService {
         gn.setHeat(heat);
         gn.setProperties(node.asMap(v -> v.asObject()));
         return gn;
+    }
+
+    /** 节点的显示名：优先 title，其次 name，两者都没有才退回逻辑 id。 */
+    private String nodeDisplayName(Node node) {
+        if (node.containsKey("title") && !node.get("title").isNull()) {
+            return node.get("title").asString();
+        }
+        if (node.containsKey("name") && !node.get("name").isNull()) {
+            return node.get("name").asString();
+        }
+        return nodeLogicalId(node);
     }
 
     /** 节点逻辑 id（与前端渲染约定的类型一致） */

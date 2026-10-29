@@ -35,16 +35,20 @@ public class GraphService {
 
     /** 节点列表 / 搜索 */
     public List<GraphNode> listNodes(String type, String keyword, Integer limit) {
-        String label = safeLabel(type == null ? "Resource" : type);
-        StringBuilder cypher = new StringBuilder("MATCH (n:").append(label).append(") ");
+        // 不传 type 时查全部标签。之前默认落到 Resource，导致管理端不选类型
+        // 就只返回资源节点，新建的课程/知识点怎么都查不到。
+        boolean allTypes = (type == null || type.isBlank());
+        String label = allTypes ? null : safeLabel(type);
+        StringBuilder cypher = new StringBuilder(
+                allTypes ? "MATCH (n) " : "MATCH (n:" + label + ") ");
         Map<String, Object> params = new HashMap<>();
         if (keyword != null && !keyword.isBlank()) {
             cypher.append("WHERE n.name CONTAINS $kw OR n.title CONTAINS $kw ");
             params.put("kw", keyword);
         }
         cypher.append("RETURN n ");
-        if (limit != null && limit > 0) cypher.append("LIMIT ").append(limit);
-        else cypher.append("LIMIT 200");
+        int cap = (limit != null && limit > 0) ? Math.min(limit, 1000) : 500;
+        cypher.append("LIMIT ").append(cap);
         List<GraphNode> nodes = new ArrayList<>();
         for (Record rec : neo4jTemplate.runReadRaw(cypher.toString(), params)) {
             nodes.add(toGraphNode(rec.get("n").asNode()));
@@ -54,8 +58,12 @@ public class GraphService {
 
     /** 关系列表 */
     public List<GraphEdge> listEdges(String fromType, String fromId, String relType) {
-        String label = safeLabel(fromType == null ? "Resource" : fromType);
-        StringBuilder cypher = new StringBuilder("MATCH (a:").append(label).append(")");
+        // 不传 fromType 时查所有类型的起点。之前默认 Resource，
+        // 导致管理端画布只拿到“资源→知识点”这 200 条，其余关系全丢。
+        boolean allFrom = (fromType == null || fromType.isBlank());
+        String label = allFrom ? null : safeLabel(fromType);
+        StringBuilder cypher = new StringBuilder(
+                allFrom ? "MATCH (a)" : "MATCH (a:" + label + ")");
         if (relType != null && !relType.isBlank()) {
             cypher.append("-[r:").append(safeRel(relType)).append("]->");
         } else {
@@ -63,11 +71,11 @@ public class GraphService {
         }
         cypher.append("(b) ");
         Map<String, Object> params = new HashMap<>();
-        if (fromId != null && !fromId.isBlank()) {
+        if (label != null && fromId != null && !fromId.isBlank()) {
             cypher.append("WHERE a").append(idPredicate(label)).append(" = $fid ");
             params.put("fid", rawId(label, fromId));
         }
-        cypher.append("RETURN a, r, b LIMIT 300");
+        cypher.append("RETURN a, r, b LIMIT 1000");
         List<GraphEdge> edges = new ArrayList<>();
         for (Record rec : neo4jTemplate.runReadRaw(cypher.toString(), params)) {
             Node a = rec.get("a").asNode();
@@ -76,6 +84,8 @@ public class GraphService {
             GraphEdge e = new GraphEdge();
             e.setSource(nodeLogicalId(a));
             e.setTarget(nodeLogicalId(b));
+            e.setSourceType(a.labels().iterator().next());
+            e.setTargetType(b.labels().iterator().next());
             e.setRelType(r.type());
             e.setLabel(relLabel(r.type()));
             edges.add(e);
@@ -101,14 +111,18 @@ public class GraphService {
             List<Node> ns = rec.get("ns").asList(Value::asNode);
             List<Relationship> rs = rec.get("rs").asList(Value::asRelationship);
             Map<Long, String> elemToLogical = new HashMap<>();
+            Map<Long, String> elemToType = new HashMap<>();
             for (Node n : ns) {
                 elemToLogical.put(n.id(), nodeLogicalId(n));
+                elemToType.put(n.id(), n.labels().iterator().next());
                 nodeMap.put(n.id(), toGraphNode(n));
             }
             for (Relationship r : rs) {
                 GraphEdge e = new GraphEdge();
                 e.setSource(elemToLogical.getOrDefault(r.startNodeId(), String.valueOf(r.startNodeId())));
                 e.setTarget(elemToLogical.getOrDefault(r.endNodeId(), String.valueOf(r.endNodeId())));
+                e.setSourceType(elemToType.get(r.startNodeId()));
+                e.setTargetType(elemToType.get(r.endNodeId()));
                 e.setRelType(r.type());
                 e.setLabel(relLabel(r.type()));
                 edgeList.add(e);
@@ -146,7 +160,29 @@ public class GraphService {
     /** 新增节点 */
     public void createNode(GraphNodeCreateDTO dto) {
         String label = safeLabel(dto.getType());
-        Map<String, Object> props = dto.getProperties() == null ? new HashMap<>() : dto.getProperties();
+        Map<String, Object> props = dto.getProperties() == null
+                ? new HashMap<>()
+                : new HashMap<>(dto.getProperties());
+
+        // 节点必须带业务主键，否则建关系、查详情、删除都按 id 匹配不到，
+        // 会静默失败（接口返回成功但库里什么都没发生）。
+        if ("Resource".equals(label)) {
+            Object rid = props.get("resource_id");
+            if (rid == null || String.valueOf(rid).isBlank()) {
+                throw new BusinessException(ResultCode.PARAM_ERROR,
+                        "新增资源节点必须填写 resource_id，且要与 MySQL 的 resource_no 一致");
+            }
+        } else {
+            Object idVal = props.get("id");
+            if (idVal == null || String.valueOf(idVal).isBlank()) {
+                props.put("id", System.currentTimeMillis());
+            } else if (idVal instanceof String s && s.matches("\\d+")) {
+                props.put("id", Long.parseLong(s));
+            }
+        }
+        if (!props.containsKey("name") && props.containsKey("label")) {
+            props.put("name", props.get("label"));
+        }
         neo4jTemplate.runWrite("CREATE (n:" + label + ") SET n = $props", Map.of("props", props));
     }
 
@@ -293,7 +329,9 @@ public class GraphService {
     }
 
     private String idPredicate(String label) {
-        return "resource_id".equals(label) ? ".resource_id" : ".id";
+        // Resource 的主键叫 resource_id，其余节点叫 id。
+        // 这里比较的是“标签”，之前误写成和字段名 "resource_id" 比，结果资源节点一直用 .id 去匹配。
+        return "Resource".equals(label) ? ".resource_id" : ".id";
     }
 
     /** 解析节点 id 为原始类型：Resource 用字符串 resource_id，其余用 Long */

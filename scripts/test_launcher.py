@@ -217,6 +217,12 @@ class LauncherSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Node 22'):
                 self.run_launcher('/check')
 
+    def test_node_22_before_12_is_rejected(self):
+        self.build_fixtures()
+        with patch.object(launcher.subprocess, 'run', side_effect=self.version_runner(node='22.11.0')):
+            with self.assertRaisesRegex(RuntimeError, 'Node 22.12'):
+                self.run_launcher('/check')
+
     def test_check_does_not_print_credentials_embedded_in_database_urls(self):
         self.build_fixtures()
         os.environ['SPRING_DATASOURCE_URL'] = 'jdbc:mysql://db-user:hidden-db-password@db.example:3307/campus'

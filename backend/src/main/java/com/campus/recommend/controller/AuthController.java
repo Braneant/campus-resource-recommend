@@ -14,6 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
+import com.campus.recommend.service.ResetRequestLimiter;
+import com.campus.recommend.common.BusinessException;
+import com.campus.recommend.service.ResetDispatch;
 
 /** 鉴权模块 /api/auth */
 @Slf4j
@@ -24,6 +28,8 @@ public class AuthController {
     @Autowired
     private AuthService authService;
     @Autowired private PasswordResetService passwordResetService;
+    @Autowired private ResetDispatch resetDispatch;
+    private final ResetRequestLimiter resetLimiter = new ResetRequestLimiter();
 
     /** 学生注册 */
     @PostMapping("/register")
@@ -39,8 +45,10 @@ public class AuthController {
 
     /** 找回密码（校验学号 + 邮箱） */
     @PostMapping("/forgot-password")
-    public Result<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDTO body) {
-        passwordResetService.request(body.getStudentNo(), body.getEmail());
+    public Result<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDTO body, HttpServletRequest request) {
+        passwordResetService.requireDeliveryConfigured();
+        if (!resetLimiter.allow(request.getRemoteAddr())) return Result.success();
+        resetDispatch.submit(body.getStudentNo(), body.getEmail());
         return Result.success();
     }
 

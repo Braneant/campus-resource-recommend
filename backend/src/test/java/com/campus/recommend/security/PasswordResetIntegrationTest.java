@@ -77,11 +77,15 @@ class PasswordResetIntegrationTest {
     @Autowired MutableClock clock;
     @Autowired TestPasswords passwords;
     @Autowired Mailbox mailbox;
+    @Autowired com.campus.recommend.service.ResetDispatch dispatch;
     private MockMvc mvc;
+    private static final java.util.concurrent.atomic.AtomicInteger CLIENTS = new java.util.concurrent.atomic.AtomicInteger();
+    private String client;
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach
     void isolatedUsers() {
+        client = "fixture-" + CLIENTS.incrementAndGet();
         new ResourceDatabasePopulator(new ClassPathResource("security-schema.sql")).execute(dataSource);
         database.update("DELETE FROM password_reset_credential");
         database.update("DELETE FROM student_user");
@@ -166,7 +170,7 @@ class PasswordResetIntegrationTest {
     @Test
     void issueCooldownAndReplacementInvalidateThePreviousCredential() throws Exception {
         String first = issue();
-        assertEquals(1001, code(forgotResponse("20260007", "learner@example.edu")));
+        assertEquals(0, code(forgotResponse("20260007", "learner@example.edu")));
         assertEquals(1, mailbox.messages.size());
         clock.now = clock.now.plusSeconds(61);
         String second = issue();
@@ -190,23 +194,31 @@ class PasswordResetIntegrationTest {
         String credential = issue();
         database.update("UPDATE student_user SET status=? WHERE id=7", status);
         assertEquals(1001, code(resetResponse("learner", credential, "replacement-password")));
-        assertEquals(1001, code(forgotResponse("20260007", "learner@example.edu")));
+        assertEquals(0, code(forgotResponse("20260007", "learner@example.edu")));
         assertOriginalPassword();
         assertEquals(1, mailbox.messages.size());
     }
 
     @Test
     void mismatchEmailCannotReceiveAnyCredential() throws Exception {
-        assertEquals(1001, code(forgotResponse("20260007", "attacker@example.edu")));
+        assertEquals(0, code(forgotResponse("20260007", "attacker@example.edu")));
         assertTrue(mailbox.messages.isEmpty());
         assertEquals(0, database.queryForObject("SELECT COUNT(*) FROM password_reset_credential", Integer.class));
+    }
+
+    @Test
+    void sameResponseForKnownAndUnknownAccounts() throws Exception {
+        String known = forgotResponse("20260007", "learner@example.edu");
+        String unknown = forgotResponse("29999999", "unknown@example.edu");
+        assertEquals(known, unknown);
+        assertEquals(1, mailbox.messages.size());
     }
 
     @Test
     void deliveryFailureRollsBackAndDoesNotLeakCredentialInResponseOrLogs(CapturedOutput output) throws Exception {
         mailbox.fail = true;
         String response = forgotResponse("20260007", "learner@example.edu");
-        assertEquals(5000, code(response));
+        assertEquals(0, code(response));
         assertNotNull(mailbox.lastAttempt);
         String credential = credentialIn(mailbox.lastAttempt);
         assertFalse(response.contains(credential));
@@ -262,9 +274,11 @@ class PasswordResetIntegrationTest {
     }
 
     private String forgotResponse(String studentNo, String email) throws Exception {
-        return mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+        String response = mvc.perform(post("/api/auth/forgot-password").with(request -> { request.setRemoteAddr(client); return request; }).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("studentNo", studentNo, "email", email))))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(dispatch.awaitIdle(Duration.ofSeconds(5)));
+        return response;
     }
 
     private String resetResponse(String username, String credential, String password) throws Exception {
@@ -306,7 +320,7 @@ class PasswordResetIntegrationTest {
     @Import({AuthService.class, AuthController.class, JwtUtil.class, JwtInterceptor.class})
     @ComponentScan(basePackages = "com.campus.recommend.service", useDefaultFilters = false,
             includeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
-                    pattern = "com\\.campus\\.recommend\\.service\\.(PasswordResetService|SmtpPasswordResetDelivery)"))
+                    pattern = "com\\.campus\\.recommend\\.service\\.(PasswordResetService|SmtpPasswordResetDelivery|ResetDispatch)"))
     static class Fixture {
         @Bean DataSource dataSource() {
             JdbcDataSource source = new JdbcDataSource();

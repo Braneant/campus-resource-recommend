@@ -79,6 +79,7 @@ import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { listGraphNodes, getSubgraph, getGraphNode, listGraphEdges } from '@/api/graph'
+import { formatGraphTooltip } from '@/utils/graphTooltip'
 import { GraphNodeColor, GraphNodeTypeMap, GraphRelMap } from '@/utils/constants'
 
 const nodeTypeMap = GraphNodeTypeMap
@@ -161,9 +162,7 @@ function renderGraph() {
   if (!chart) return
   chart.setOption({
     tooltip: {
-      formatter: (p) => p.dataType === 'node'
-        ? `<b>${p.data.name}</b><br/>类型：${nodeTypeMap[p.data._type] || ''}`
-        : `${relLabel(p.data.relType)}`
+      formatter: (p) => formatGraphTooltip(p, nodeTypeMap, 'student', relLabel)
     },
     legend: [{ data: Object.values(nodeTypeMap), top: 6, icon: 'circle', itemWidth: 10, itemHeight: 10 }],
     series: [{

@@ -77,7 +77,7 @@ async function onVerify() {
     loading.value = true
     try {
       await forgotPassword({ ...form1 })
-      ElMessage.success('验证码已发送，请查收注册邮箱')
+      ElMessage.success('如果账号信息匹配，验证码将发送至注册邮箱，请查收')
       step.value = 1
     } finally {
       loading.value = false

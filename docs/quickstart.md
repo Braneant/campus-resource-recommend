@@ -1,6 +1,6 @@
 # 从全新克隆启动
 
-此说明面向本地开发和演示。需要 Java 17 或更高版本、Maven 3.9、Node.js 22 或更高版本、Python 3、MySQL 8 和 Neo4j。Neo4j 本身所需 Java 版本以其发行版要求为准。本地脚本使用 Windows；其他平台可按下面的 Maven 和 npm 命令手动运行。
+此说明面向本地开发和演示。需要 Java 17 或更高版本、Maven 3.9、Node.js 22.12 或更高版本、Python 3、MySQL 8 和 Neo4j。Neo4j 本身所需 Java 版本以其发行版要求为准。本地脚本使用 Windows；其他平台可按下面的 Maven 和 npm 命令手动运行。
 
 1. 克隆仓库，在 MySQL 创建空数据库 `campus_recommend`，按 `data/README.md` 顺序导入 SQL；在隔离的 Neo4j 数据库导入 `data/neo4j_init.cypher`。这些是模拟数据，请勿导入其他项目使用的业务数据库。
 2. 将 `backend/local-env.example.cmd` 复制为 `backend/local-env.cmd`，填写 `MYSQL_PASSWORD`、`NEO4J_PASSWORD` 和足够长的随机 `JWT_SECRET`。本地密钥文件已被 Git 忽略。后端默认连接 `localhost:3306/campus_recommend` 和 `bolt://localhost:7687`。

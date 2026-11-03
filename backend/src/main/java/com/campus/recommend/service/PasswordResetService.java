@@ -86,6 +86,8 @@ public class PasswordResetService {
         delivery.send(student.getEmail(), student.getUsername(), credential, ttl);
     }
 
+    public void requireDeliveryConfigured() { delivery.requireConfigured(); }
+
     @Transactional
     public void reset(String username, String code, String newPassword) {
         PasswordPolicy.validateNewPassword(newPassword);

@@ -2,6 +2,7 @@ package com.campus.recommend.controller;
 
 import com.campus.recommend.common.Result;
 import com.campus.recommend.context.LoginContext;
+import com.campus.recommend.context.LoginUser;
 import com.campus.recommend.service.RecommendService;
 import com.campus.recommend.vo.RecommendExplainVO;
 import com.campus.recommend.vo.RecommendItem;
@@ -31,9 +32,9 @@ public class RecommendController {
     public Result<List<RecommendItem>> personal(@RequestParam(required = false) Long userId,
                                                 @RequestParam(required = false) Integer topN,
                                                 @RequestParam(required = false) List<Long> kpIds) {
-        Long uid = userId != null ? userId : LoginContext.getStudentId();
+        Long uid = authorizedUser(userId);
         if (uid == null) {
-            return Result.error(1002, "缺少 userId 或未登录");
+            return Result.error(1002, "未登录或无权查询该用户的推荐");
         }
         return Result.success(recommendService.personalRecommend(uid, topN, kpIds));
     }
@@ -56,10 +57,19 @@ public class RecommendController {
     @GetMapping("/explain")
     public Result<RecommendExplainVO> explain(@RequestParam(required = false) Long userId,
                                              @RequestParam Long resourceId) {
-        Long uid = userId != null ? userId : LoginContext.getStudentId();
+        Long uid = authorizedUser(userId);
         if (uid == null) {
-            return Result.error(1002, "缺少 userId 或未登录");
+            return Result.error(1002, "未登录或无权查询该用户的推荐");
         }
         return Result.success(recommendService.explain(uid, resourceId));
+    }
+
+    private Long authorizedUser(Long requestedId) {
+        LoginUser current = LoginContext.get();
+        if (current == null) return null;
+        if (LoginUser.ROLE_STUDENT.equals(current.getRole())) {
+            return requestedId == null || requestedId.equals(current.getUserId()) ? current.getUserId() : null;
+        }
+        return LoginUser.ROLE_ADMIN.equals(current.getRole()) ? requestedId : null;
     }
 }

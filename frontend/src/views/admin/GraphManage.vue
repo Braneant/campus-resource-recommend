@@ -122,6 +122,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Link, Refresh, Search, Delete } from '@element-plus/icons-vue'
 import { addGraphNode, deleteGraphNode, addGraphRelation, syncGraph, listSyncLogs, retrySyncLog } from '@/api/admin'
 import { listGraphNodes, listGraphEdges, getSubgraph } from '@/api/graph'
+import { formatGraphTooltip } from '@/utils/graphTooltip'
 import { GraphNodeColor, GraphNodeTypeMap, GraphRelMap } from '@/utils/constants'
 
 const nodeTypeMap = GraphNodeTypeMap
@@ -210,7 +211,7 @@ function addEdgeObj(e) {
 function render() {
   if (!chart) return
   chart.setOption({
-    tooltip: { formatter: (p) => p.dataType === 'node' ? `<b>${p.data.name}</b><br/>${nodeTypeMap[p.data._type]}` : '' },
+    tooltip: { formatter: (p) => formatGraphTooltip(p, nodeTypeMap, 'admin') },
     legend: [{ data: Object.values(nodeTypeMap), top: 6, icon: 'circle', itemWidth: 10, itemHeight: 10 }],
     series: [{
       type: 'graph', layout: 'force', roam: true, draggable: true,

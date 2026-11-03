@@ -47,8 +47,8 @@
 
 | 层 | 选型 |
 |---|---|
-| 前端 | Vue 3.5 + Vite 5.4 + Element Plus 2.8 + Pinia + Vue Router 4 |
-| 图表 | ECharts 5.5（图谱、大屏），ogl 1.0（登录页极光着色器） |
+| 前端 | Vue 3.5 + Vite 7 + Element Plus 2.8 + Pinia + Vue Router 4 |
+| 图表 | ECharts 6（图谱、大屏），ogl 1.0（登录页极光着色器） |
 | 后端 | Spring Boot 3.2.5 + MyBatis-Plus 3.5.7 + JWT |
 | 业务库 | MySQL 8（18 张表） |
 | 图数据库 | Neo4j 2026.08.1（316 节点、358 关系） |
@@ -82,7 +82,7 @@ score = 0.5 * CF + 0.3 * KG + 0.2 * Hot
 | JDK（后端） | 17 及以上，本机 26 |
 | JDK（Neo4j） | 21 |
 | Maven | 3.9 及以上，或使用项目内 `tools/apache-maven-3.9.9` |
-| Node.js | 18 及以上，本机 22 |
+| Node.js | 22.12 及以上 |
 | MySQL | 8.x |
 | Neo4j | 2026.08.1 社区版 |
 

@@ -188,7 +188,11 @@ def resolve_tools():
     java = executable('java', 'CAMPUS_JAVA', 'JAVA_HOME')
     node = executable('node', 'CAMPUS_NODE')
     tool_version(java, '-version', r'version\s+"(\d+)', 17, 'Java')
-    tool_version(node, '--version', r'v(\d+)\.', 22, 'Node')
+    result = subprocess.run([node, '--version'], capture_output=True, creationflags=FLAGS, timeout=15)
+    version = re.search(r'v(\d+)\.(\d+)\.', result.stdout.decode('utf-8', errors='replace'))
+    if result.returncode or not version or (int(version.group(1)), int(version.group(2))) < (22, 12):
+        raise RuntimeError('Node 22.12 or newer is required; check its configured executable')
+    print(f'[OK] Node {version.group(1)}.{version.group(2)}', flush=True)
     return java, node
 
 

@@ -21,7 +21,7 @@
           </el-select>
           <el-button type="primary" class="w100 mt8" :icon="Search" :loading="searching" @click="searchNodes">搜索</el-button>
           <div class="node-result">
-            <div v-for="n in searchRes" :key="n.id + n.type" class="node-res-item" @click="expandNode({ id: String(n.id), _type: normType(n.type), name: n.label })">
+            <div v-for="n in searchRes" :key="n.id + n.type" class="node-res-item" @click="expandNode({ id: String(n.id), _rid: String(n.id), _type: normType(n.type), name: n.label })">
               <span class="nr-dot" :style="{background: colorOf(normType(n.type))}"></span>
               <span class="nr-label">{{ n.label }}</span>
               <span class="nr-type">{{ nodeTypeMap[normType(n.type)] }}</span>
@@ -79,6 +79,7 @@ import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { listGraphNodes, getSubgraph, getGraphNode, listGraphEdges } from '@/api/graph'
+import { formatGraphTooltip } from '@/utils/graphTooltip'
 import { GraphNodeColor, GraphNodeTypeMap, GraphRelMap } from '@/utils/constants'
 
 const nodeTypeMap = GraphNodeTypeMap
@@ -119,11 +120,18 @@ function symbolSizeOf(n) {
 
 function categoryIndexOf(t) { return Object.keys(nodeColor).indexOf(t) }
 
+// ECharts 要求节点 id 全局唯一，而学院和专业都有 id=1。
+// 画布上用「类型:id」做键，原始 id 存在 _rid 里给接口调用。
+function nodeKey(type, rid) { return type + ':' + String(rid) }
+
 function addNode(n) {
   const type = normType(n.type)
-  if (graphNodes.find((x) => x.id === String(n.id) && x._type === type)) return
+  const rid = String(n.id)
+  const key = nodeKey(type, rid)
+  if (graphNodes.find((x) => x.id === key)) return
   graphNodes.push({
-    id: String(n.id),
+    id: key,
+    _rid: rid,
     name: n.label,
     _type: type,
     heat: n.heat,
@@ -134,13 +142,16 @@ function addNode(n) {
   })
 }
 function addEdge(e) {
-  const key = e.source + '->' + e.target + ':' + e.relType
+  const st = normType(e.sourceType)
+  const tt = normType(e.targetType)
+  const s = st ? nodeKey(st, e.source) : String(e.source)
+  const t = tt ? nodeKey(tt, e.target) : String(e.target)
+  const key = s + '->' + t + ':' + e.relType
   if (graphEdges.find((x) => x._key === key)) return
-  // 节点带 id 时，ECharts graph 的 links 必须用节点 id 匹配（实验验证）
   graphEdges.push({
     _key: key,
-    source: String(e.source),
-    target: String(e.target),
+    source: s,
+    target: t,
     relType: e.relType,
     lineStyle: { color: GraphRelMap[e.relType]?.color || '#c2ccdd', width: 1.4, curveness: 0.08, opacity: 0.75 },
     label: { show: false, formatter: relLabel(e.relType) }
@@ -151,9 +162,7 @@ function renderGraph() {
   if (!chart) return
   chart.setOption({
     tooltip: {
-      formatter: (p) => p.dataType === 'node'
-        ? `<b>${p.data.name}</b><br/>类型：${nodeTypeMap[p.data._type] || ''}`
-        : `${relLabel(p.data.relType)}`
+      formatter: (p) => formatGraphTooltip(p, nodeTypeMap, 'student', relLabel)
     },
     legend: [{ data: Object.values(nodeTypeMap), top: 6, icon: 'circle', itemWidth: 10, itemHeight: 10 }],
     series: [{
@@ -182,7 +191,7 @@ function onChartClick(params) {
 
 async function showDetail(node) {
   detail.value = null
-  getGraphNode(node._type, node.id)
+  getGraphNode(node._type, node._rid)
     .then((d) => { detail.value = d })
     .catch(() => {})
 }
@@ -190,11 +199,26 @@ async function showDetail(node) {
 function expandNode(node) {
   // 知识点 / 资源 → 多跳子图；其他类型 → 取直接关系
   let p
-  if (node._type === 'KNOWLEDGE_POINT') p = getSubgraph({ kpId: node.id, depth: depth.value })
-  else if (node._type === 'RESOURCE') p = getSubgraph({ resourceId: node.id, depth: depth.value })
-  else p = listGraphEdges({ fromId: node.id, fromType: node._type }).then((e) => ({
-    nodes: (e || []).map((x) => ({ id: x.to, type: neighborType(node._type, x.relType), label: String(x.to) })),
-    edges: (e || []).map((x) => ({ source: x.from, target: x.to, relType: x.type }))
+  if (node._type === 'KNOWLEDGE_POINT') p = getSubgraph({ kpId: node._rid, depth: depth.value })
+  else if (node._type === 'RESOURCE') p = getSubgraph({ resourceId: node._rid, depth: depth.value })
+  // 其他类型（学院/专业/课程）没有多跳子图接口，退化成取它的直接出边。
+  // 注意 GraphEdge 的字段是 source/target/relType + sourceType/targetType，
+  // 不是 from/to/type —— 原来的写法取不到值，等于什么都没展开。
+  else p = listGraphEdges({ fromId: node._rid, fromType: node._type }).then((es) => ({
+    nodes: (es || []).map((x) => ({
+      id: x.target,
+      type: x.targetType || neighborType(node._type, x.relType),
+      // 用后端返回的显示名，拿不到才退回 id。之前直接写 String(x.target)，
+      // 于是展开出来的课程/知识点都显示成一串数字。
+      label: x.targetLabel || String(x.target)
+    })),
+    edges: (es || []).map((x) => ({
+      source: x.source,
+      target: x.target,
+      sourceType: x.sourceType,
+      targetType: x.targetType,
+      relType: x.relType
+    }))
   }))
   p.then((data) => {
     ;(data.nodes || []).forEach(addNode)
@@ -215,8 +239,9 @@ function neighborType(fromType, relType) {
 function searchNodes() {
   searching.value = true
   listGraphNodes({ keyword: kw.value || undefined, type: nodeType.value || undefined, limit: 30 })
-    .then((d) => { searchRes.value = d.nodes || [] })
-    .catch(() => {})
+    // /graph/nodes 返回数组；这里兼容数组与 {nodes} 两种形状
+    .then((d) => { searchRes.value = Array.isArray(d) ? d : (d && d.nodes) || [] })
+    .catch((e) => { console.error('[知识图谱] 搜索失败', e) })
     .finally(() => { searching.value = false })
 }
 

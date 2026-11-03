@@ -124,7 +124,7 @@ const rules = {
   ],
   collegeId: [{ required: true, message: '请选择学院', trigger: 'change' }],
   majorId: [{ required: true, message: '请选择专业', trigger: 'change' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '至少 6 位', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 8, message: '至少 8 位', trigger: 'blur' }],
   confirm: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: (r, v, cb) => v === form.password ? cb() : cb(new Error('两次密码不一致')), trigger: 'blur' }

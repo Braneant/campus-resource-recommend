@@ -57,7 +57,7 @@
     </el-main>
 
     <el-footer class="sl-footer">
-      基于知识图谱 + 协同过滤的校园学习资源推荐平台 · 毕业设计第六套
+      基于知识图谱 + 协同过滤的校园学习资源推荐平台
     </el-footer>
   </el-container>
 </template>

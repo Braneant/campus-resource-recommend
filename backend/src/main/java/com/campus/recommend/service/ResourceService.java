@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +51,7 @@ public class ResourceService {
     private StudentUserMapper studentUserMapper;
     @Autowired
     private ResourceReviewRecordMapper reviewRecordMapper;
+    @Autowired private ApplicationEventPublisher events;
 
     @Value("${upload.path:./uploads}")
     private String uploadPath;
@@ -118,6 +121,7 @@ public class ResourceService {
     }
 
     /** 资源下载（登录）：写下载行为 + 下载量 +1（幂等） */
+    @Transactional
     public Map<String, Object> download(Long id) {
         Long stuId = LoginContext.getStudentId();
         if (stuId == null) {
@@ -133,6 +137,7 @@ public class ResourceService {
             downloadMapper.insert(db);
             resourceMapper.update(null, new UpdateWrapper<LearningResource>()
                     .eq("id", id).setSql("download_count = download_count + 1"));
+            events.publishEvent(new ResourceDataChanged());
         }
         LearningResource r = resourceMapper.selectById(id);
         Map<String, Object> m = new HashMap<>();
@@ -186,6 +191,7 @@ public class ResourceService {
     }
 
     /** 收藏（切换/新增，幂等） */
+    @Transactional
     public void favorite(Long id) {
         Long stuId = LoginContext.getStudentId();
         if (stuId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
@@ -199,10 +205,12 @@ public class ResourceService {
             favoriteMapper.insert(f);
             resourceMapper.update(null, new UpdateWrapper<LearningResource>()
                     .eq("id", id).setSql("favorite_count = favorite_count + 1"));
+            events.publishEvent(new ResourceDataChanged());
         }
     }
 
     /** 取消收藏 */
+    @Transactional
     public void unfavorite(Long id) {
         Long stuId = LoginContext.getStudentId();
         if (stuId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
@@ -211,10 +219,12 @@ public class ResourceService {
         if (deleted > 0) {
             resourceMapper.update(null, new UpdateWrapper<LearningResource>()
                     .eq("id", id).setSql("favorite_count = IF(favorite_count > 0, favorite_count - 1, 0)"));
+            events.publishEvent(new ResourceDataChanged());
         }
     }
 
     /** 评分：写入/更新评分行为，重算 avg_rating 与 rating_count */
+    @Transactional
     public void rating(Long id, int score) {
         Long stuId = LoginContext.getStudentId();
         if (stuId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
@@ -243,9 +253,11 @@ public class ResourceService {
         r.setAvgRating(BigDecimal.valueOf(avg).setScale(2, RoundingMode.HALF_UP));
         r.setRatingCount(all.size());
         resourceMapper.updateById(r);
+        events.publishEvent(new ResourceDataChanged());
     }
 
     /** 学生上传资源（进入待审核） */
+    @Transactional
     public Map<String, Object> upload(ResourceUploadDTO dto, MultipartFile file) {
         Long stuId = LoginContext.getStudentId();
         if (stuId == null) throw new BusinessException(ResultCode.UNAUTHORIZED);
@@ -282,6 +294,7 @@ public class ResourceService {
         rec.setAction(1);
         rec.setCreateTime(LocalDateTime.now());
         reviewRecordMapper.insert(rec);
+        events.publishEvent(new ResourceDataChanged());
 
         Map<String, Object> m = new HashMap<>();
         m.put("resourceId", r.getId());
@@ -303,7 +316,7 @@ public class ResourceService {
             return "/files/" + fileName;
         } catch (Exception e) {
             log.warn("文件保存失败：{}", e.getMessage());
-            return null;
+            throw new BusinessException(ResultCode.SERVER_ERROR, "文件保存失败，请重试");
         }
     }
 

@@ -10,6 +10,7 @@ import com.campus.recommend.entity.StudentUser;
 import com.campus.recommend.mapper.AdminMapper;
 import com.campus.recommend.mapper.StudentUserMapper;
 import com.campus.recommend.util.JwtUtil;
+import com.campus.recommend.util.PasswordPolicy;
 import com.campus.recommend.vo.LoginVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ public class AuthService {
 
     /** 学生注册 */
     public Map<String, Object> register(RegisterDTO dto) {
+        PasswordPolicy.validateNewPassword(dto.getPassword());
         // 用户名 / 学号 唯一性校验
         if (studentUserMapper.selectCount(new LambdaQueryWrapper<StudentUser>()
                 .eq(StudentUser::getUsername, dto.getUsername())) > 0) {
@@ -72,13 +74,13 @@ public class AuthService {
         StudentUser stu = studentUserMapper.selectOne(
                 new LambdaQueryWrapper<StudentUser>().eq(StudentUser::getUsername, username));
         if (stu != null) {
-            if (stu.getStatus() != null && stu.getStatus() == 0) {
+            if (!Integer.valueOf(1).equals(stu.getStatus())) {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "账号已被禁用");
             }
             if (!passwordEncoder.matches(password, stu.getPassword())) {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
             }
-            String token = jwtUtil.generateToken(stu.getId(), LoginUser.ROLE_STUDENT, stu.getUsername());
+            String token = jwtUtil.generateToken(stu.getId(), LoginUser.ROLE_STUDENT, stu.getUsername(), stu.getPassword());
             LoginVO vo = new LoginVO();
             vo.setToken(token);
             vo.setRole(LoginUser.ROLE_STUDENT);
@@ -89,7 +91,7 @@ public class AuthService {
         Admin admin = adminMapper.selectOne(
                 new LambdaQueryWrapper<Admin>().eq(Admin::getUsername, username));
         if (admin != null) {
-            if (admin.getStatus() != null && admin.getStatus() == 0) {
+            if (!Integer.valueOf(1).equals(admin.getStatus())) {
                 throw new BusinessException(ResultCode.UNAUTHORIZED, "账号已被禁用");
             }
             if (!passwordEncoder.matches(password, admin.getPassword())) {
@@ -99,7 +101,7 @@ public class AuthService {
             admin.setLastLoginTime(java.time.LocalDateTime.now());
             adminMapper.updateById(admin);
 
-            String token = jwtUtil.generateToken(admin.getId(), LoginUser.ROLE_ADMIN, admin.getUsername());
+            String token = jwtUtil.generateToken(admin.getId(), LoginUser.ROLE_ADMIN, admin.getUsername(), admin.getPassword());
             LoginVO vo = new LoginVO();
             vo.setToken(token);
             vo.setRole(LoginUser.ROLE_ADMIN);
@@ -112,27 +114,6 @@ public class AuthService {
             return vo;
         }
         throw new BusinessException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
-    }
-
-    /** 找回密码：校验学号 + 邮箱（简化：仅校验存在性，真实场景发验证码） */
-    public void forgotPassword(String studentNo, String email) {
-        StudentUser stu = studentUserMapper.selectOne(new LambdaQueryWrapper<StudentUser>()
-                .eq(StudentUser::getStudentNo, studentNo));
-        if (stu == null || !StringUtils.hasText(email) || !email.equals(stu.getEmail())) {
-            throw new BusinessException(ResultCode.PARAM_ERROR, "学号或邮箱不匹配");
-        }
-        // 真实环境：此处发送验证码邮件；演示直接返回成功
-    }
-
-    /** 重置密码（简化：忽略验证码，直接按用户名更新） */
-    public void resetPassword(String username, String newPassword) {
-        StudentUser stu = studentUserMapper.selectOne(new LambdaQueryWrapper<StudentUser>()
-                .eq(StudentUser::getUsername, username));
-        if (stu == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "用户不存在");
-        }
-        stu.setPassword(passwordEncoder.encode(newPassword));
-        studentUserMapper.updateById(stu);
     }
 
     private Map<String, Object> buildStudentMap(StudentUser stu) {

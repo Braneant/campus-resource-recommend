@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,6 +40,7 @@ public class ResourceAuditService {
     private StudentUserMapper studentUserMapper;
     @Autowired
     private Neo4jSyncService neo4jSyncService;
+    @Autowired private ApplicationEventPublisher events;
 
     /** 审核列表（status：0待审 / 2驳回） */
     public PageResult<Map<String, Object>> auditList(Integer status, int pageNum, int pageSize) {
@@ -69,6 +72,7 @@ public class ResourceAuditService {
     }
 
     /** 审核通过：status=1 + 审核记录 + Neo4j 同步 */
+    @Transactional
     public void approve(Long id, Long kpId, Long reviewerId) {
         LearningResource r = resourceMapper.selectById(id);
         if (r == null) throw new BusinessException(ResultCode.NOT_FOUND, "资源不存在");
@@ -84,15 +88,13 @@ public class ResourceAuditService {
         rec.setCreateTime(LocalDateTime.now());
         reviewRecordMapper.insert(rec);
 
-        // 触发 Neo4j 同步（审核通过 → 入图）
-        try {
-            neo4jSyncService.syncResource(r, 1);
-        } catch (Exception e) {
-            log.warn("资源 {} 审核通过，但 Neo4j 同步失败：{}", id, e.getMessage());
-        }
+        // Durable outbox insert participates in this MySQL transaction; graph runs only after commit.
+        neo4jSyncService.syncResource(r, 1);
+        events.publishEvent(new ResourceDataChanged());
     }
 
     /** 审核驳回 */
+    @Transactional
     public void reject(Long id, String comment, Long reviewerId) {
         LearningResource r = resourceMapper.selectById(id);
         if (r == null) throw new BusinessException(ResultCode.NOT_FOUND, "资源不存在");
@@ -106,6 +108,8 @@ public class ResourceAuditService {
         rec.setReviewComment(comment);
         rec.setCreateTime(LocalDateTime.now());
         reviewRecordMapper.insert(rec);
+        neo4jSyncService.syncResource(r, 3);
+        events.publishEvent(new ResourceDataChanged());
     }
 
     /** 管理端全量资源列表 */

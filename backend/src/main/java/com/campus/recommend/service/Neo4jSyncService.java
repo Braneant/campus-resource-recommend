@@ -7,6 +7,11 @@ import com.campus.recommend.mapper.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -34,8 +39,11 @@ public class Neo4jSyncService {
     private MajorMapper majorMapper;
     @Autowired
     private CourseMapper courseMapper;
+    @Autowired
+    private GraphSyncWorker worker;
 
-    /** 同步单个资源到 Neo4j（幂等 MERGE） */
+    /** Enqueue in the caller's MySQL transaction; contact Neo4j only after commit. */
+    @Transactional
     public void syncResource(LearningResource res, Integer syncType) {
         Neo4jSyncLog log = new Neo4jSyncLog();
         log.setResourceId(res.getId());
@@ -43,43 +51,40 @@ public class Neo4jSyncService {
         log.setSyncStatus(0);
         log.setCreateTime(LocalDateTime.now());
         syncLogMapper.insert(log);
-        try {
-            Map<String, Object> p = new HashMap<>();
-            p.put("resourceId", res.getResourceNo());
-            p.put("title", res.getTitle());
-            p.put("type", res.getType() == null ? 1 : res.getType());
-            p.put("author", res.getAuthor());
-            p.put("viewCount", res.getViewCount() == null ? 0 : res.getViewCount());
-            p.put("downloadCount", res.getDownloadCount() == null ? 0 : res.getDownloadCount());
-            p.put("avgRating", res.getAvgRating() == null ? 0.0 : res.getAvgRating().doubleValue());
-            p.put("heat", res.getHeat() == null ? 0.0 : res.getHeat().doubleValue());
-
-            // 1) MERGE 资源节点
-            neo4jTemplate.runWrite(
-                    "MERGE (r:Resource {resource_id:$resourceId}) " +
-                            "SET r.title=$title, r.type=$type, r.author=$author, " +
-                            "r.view_count=$viewCount, r.download_count=$downloadCount, " +
-                            "r.avg_rating=$avgRating, r.heat=$heat, r.status=1", p);
-
-            // 2) 绑定主知识点（先删旧关系再建新）
-            if (res.getPrimaryKpId() != null) {
-                Map<String, Object> kp = new HashMap<>();
-                kp.put("resourceId", res.getResourceNo());
-                kp.put("kpId", res.getPrimaryKpId());
-                neo4jTemplate.runWrite(
-                        "MATCH (r:Resource {resource_id:$resourceId}) " +
-                                "OPTIONAL MATCH (r)-[old:BELONGS_TO_KP]->() DELETE old " +
-                                "WITH r MATCH (k:KnowledgePoint {id:$kpId}) " +
-                                "MERGE (r)-[:BELONGS_TO_KP]->(k)", kp);
+        Long logId = log.getId();
+        Runnable dispatch = () -> {
+            try { worker.retry(logId); }
+            catch (RuntimeException failure) {
+                // The committed pending row survives process/connection failures.
+                Neo4jSyncService.log.warn("Graph sync pending; logId={}", logId);
             }
-            log.setSyncStatus(1);
-        } catch (BusinessException e) {
-            log.setSyncStatus(2);
-            log.setErrorMsg(e.getMessage());
-            log.setCreateTime(LocalDateTime.now());
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { dispatch.run(); }
+            });
+        } else {
+            dispatch.run();
         }
-        syncLogMapper.updateById(log);
     }
+
+    /** Recover committed pending tasks after restart; failed tasks can be retried by an administrator. */
+    @Scheduled(fixedDelayString = "${neo4j.sync.retry-delay-ms:60000}")
+    public void drainPending() {
+        for (Neo4jSyncLog entry : syncLogMapper.selectList(new LambdaQueryWrapper<Neo4jSyncLog>()
+                .eq(Neo4jSyncLog::getSyncStatus, 0).orderByAsc(Neo4jSyncLog::getId).last("LIMIT 20"))) {
+            try { worker.retry(entry.getId()); }
+            catch (RuntimeException failure) { log.warn("Graph sync pending; logId={}", entry.getId()); }
+        }
+    }
+
+    public List<Neo4jSyncLog> recentLogs(Integer status) {
+        LambdaQueryWrapper<Neo4jSyncLog> query = new LambdaQueryWrapper<>();
+        if (status != null) query.eq(Neo4jSyncLog::getSyncStatus, status);
+        return syncLogMapper.selectList(query.orderByDesc(Neo4jSyncLog::getId).last("LIMIT 100"));
+    }
+
+    public void retry(Long id) { worker.retry(id); }
 
     /** 从图谱移除资源（驳回/下架） */
     public void removeResourceFromGraph(String resourceNo) {

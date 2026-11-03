@@ -27,6 +27,30 @@ backend/neo4j/
 backend/local-env.cmd
 application-local.yml
 
+# Private local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python and local engineering/runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+tmp/
+.superpowers/
+*.bak
+*.backup
+backups/
+
+# Launcher sources are explicitly allowlisted by .startup-safe/.gitignore.
+# State, logs, Vite caches and local backups remain local.
+
 # 系统文件
 .DS_Store
 Thumbs.db

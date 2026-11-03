@@ -29,7 +29,7 @@
               <el-input v-model="form2.code" placeholder="请输入邮箱收到的验证码" :prefix-icon="Key" />
             </el-form-item>
             <el-form-item label="新密码" prop="newPassword">
-              <el-input v-model="form2.newPassword" type="password" show-password placeholder="至少 6 位" :prefix-icon="Lock" />
+              <el-input v-model="form2.newPassword" type="password" show-password placeholder="至少 8 位" :prefix-icon="Lock" />
             </el-form-item>
             <el-button type="primary" class="auth-submit" :loading="loading" @click="onReset">重 置</el-button>
           </el-form>
@@ -66,7 +66,7 @@ const rules1 = {
 const rules2 = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   code: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
-  newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }, { min: 6, message: '至少 6 位', trigger: 'blur' }]
+  newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }, { min: 8, message: '至少 8 位', trigger: 'blur' }]
 }
 
 function go(name) { router.push({ name }) }
@@ -77,7 +77,7 @@ async function onVerify() {
     loading.value = true
     try {
       await forgotPassword({ ...form1 })
-      ElMessage.success('验证码已发送（演示环境请使用 123456）')
+      ElMessage.success('如果账号信息匹配，验证码将发送至注册邮箱，请查收')
       step.value = 1
     } finally {
       loading.value = false

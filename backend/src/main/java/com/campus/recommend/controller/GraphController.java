@@ -34,7 +34,7 @@ public class GraphController {
     public Result<List<GraphEdge>> edges(@RequestParam(required = false) String fromId,
                                          @RequestParam(required = false) String fromType,
                                          @RequestParam(required = false) String relType) {
-        return Result.success(graphService.listEdges(fromId, fromType, relType));
+        return Result.success(graphService.listEdges(fromType, fromId, relType));
     }
 
     /** 9.3 多跳子图（力导向图渲染） */

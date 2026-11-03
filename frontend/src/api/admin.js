@@ -62,6 +62,9 @@ export function syncGraph(data) {
   return request({ url: '/admin/graph/sync', method: 'post', data })
 }
 
+export const listSyncLogs = (params) => request({ url: '/admin/graph/sync/logs', params })
+export const retrySyncLog = (id) => request({ url: `/admin/graph/sync/logs/${id}/retry`, method: 'post' })
+
 // ---- 用户权限管控（扩展接口：契约未显式列出，按 /api/admin/user 约定）----
 export const userApi = {
   list: (params) => request({ url: '/admin/user', method: 'get', params }),

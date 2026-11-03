@@ -1,0 +1,24 @@
+{
+  "scope": "in-process Java engine, warm cache, no HTTP/MySQL/Neo4j",
+  "fixture": "192 approved resources, 20 test users, 342 training pairs",
+  "concurrency": 4,
+  "warmup_per_mode": 100,
+  "requests_per_mode": 400,
+  "platform": "Windows-11-10.0.26100-SP0",
+  "cpu": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "logical_cpus": 32,
+  "java": "openjdk version \"21\" 2023-09-19",
+  "metrics": {
+    "baseline": {
+      "p50_ms": 1.684,
+      "p95_ms": 4.073,
+      "requests_per_second": 1959.29
+    },
+    "cached": {
+      "p50_ms": 0.585,
+      "p95_ms": 0.746,
+      "requests_per_second": 7620.64
+    }
+  },
+  "limitations": "One sequential pair of runs; no confidence interval, GC isolation, cold-cache, SQL, graph or network measurement."
+}

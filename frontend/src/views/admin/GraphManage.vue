@@ -40,6 +40,25 @@
       </section>
     </div>
 
+    <section class="app-card" style="margin-top:20px;padding:20px">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">同步记录</h3>
+        <el-select v-model="logStatus" clearable placeholder="全部状态" style="width:150px" @change="loadLogs">
+          <el-option :value="0" label="待同步" /><el-option :value="1" label="成功" /><el-option :value="2" label="失败" />
+        </el-select>
+        <el-button :loading="logsLoading" @click="loadLogs">刷新记录</el-button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:13px">审核提交后同步图谱；失败不撤销审核，可排查后重试。显示最近 100 条。</p>
+      <el-table :data="syncLogs" v-loading="logsLoading" max-height="320" empty-text="暂无同步记录">
+        <el-table-column prop="id" label="任务" width="80" />
+        <el-table-column prop="resourceId" label="资源 ID" width="100" />
+        <el-table-column label="状态" width="100"><template #default="{row}">{{ ['待同步','成功','失败'][row.syncStatus] || '未知' }}</template></el-table-column>
+        <el-table-column prop="errorMsg" label="说明" min-width="220" />
+        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <el-table-column label="操作" width="100"><template #default="{row}"><el-button v-if="row.syncStatus !== 1" link type="primary" :loading="retrying === row.id" @click="retryLog(row.id)">重试</el-button></template></el-table-column>
+      </el-table>
+    </section>
+
     <!-- 新增节点 -->
     <el-dialog v-model="nodeDlg" title="新增图谱节点" width="440px">
       <el-form :model="nodeForm" label-width="90px">
@@ -50,6 +69,12 @@
         </el-form-item>
         <el-form-item label="名称" required>
           <el-input v-model="nodeForm.name" placeholder="节点显示名称" />
+        </el-form-item>
+        <el-form-item :label="nodeForm.type === 'RESOURCE' ? '资源编号' : '节点 ID'" required>
+          <el-input
+            v-model="nodeForm.nid"
+            :placeholder="nodeForm.type === 'RESOURCE' ? '如 RES20260201，需与 MySQL resource_no 一致' : '如 2001，建关系时要用它来引用'"
+          />
         </el-form-item>
         <el-form-item label="附加属性">
           <el-input v-model="nodeForm.extra" type="textarea" :rows="2" placeholder="可选，JSON，如 {&quot;desc&quot;:&quot;...&quot;}" />
@@ -95,12 +120,23 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { Plus, Link, Refresh, Search, Delete } from '@element-plus/icons-vue'
-import { addGraphNode, deleteGraphNode, addGraphRelation, syncGraph } from '@/api/admin'
-import { listGraphNodes, getSubgraph } from '@/api/graph'
+import { addGraphNode, deleteGraphNode, addGraphRelation, syncGraph, listSyncLogs, retrySyncLog } from '@/api/admin'
+import { listGraphNodes, listGraphEdges, getSubgraph } from '@/api/graph'
+import { formatGraphTooltip } from '@/utils/graphTooltip'
 import { GraphNodeColor, GraphNodeTypeMap, GraphRelMap } from '@/utils/constants'
 
 const nodeTypeMap = GraphNodeTypeMap
-const relMap = GraphRelMap
+// 新建关系时只允许选 Neo4j 里真实存在的六种类型。
+// 这里没用 GraphRelMap 直接当选项：那里面还包含 SAME_COURSE / RELATED 两个
+// 只用于推荐理由文案的“虚拟类型”，选了会建出孤儿关系类型。
+const relMap = {
+  BELONGS_TO_KP: { label: '归属知识点' },
+  TEACHES: { label: '讲授' },
+  PREREQUISITE: { label: '先修' },
+  RELATED_TO: { label: '相关' },
+  BELONGS_TO: { label: '属于' },
+  CONTAINS: { label: '包含' }
+}
 const colorOf = (t) => GraphNodeColor[t] || '#8a9bb8'
 
 const chartRef = ref(null)
@@ -115,11 +151,26 @@ const searching = ref(false)
 const acting = ref(false)
 const syncing = ref(false)
 const syncScope = ref('all')
+const syncLogs = ref([])
+const logStatus = ref()
+const logsLoading = ref(false)
+const retrying = ref(null)
+async function loadLogs() {
+  logsLoading.value = true
+  try { syncLogs.value = await listSyncLogs({ status: logStatus.value }) }
+  finally { logsLoading.value = false }
+}
+async function retryLog(id) {
+  retrying.value = id
+  try { await retrySyncLog(id); await loadLogs() }
+  finally { retrying.value = null }
+}
+onMounted(loadLogs)
 
 const nodeDlg = ref(false)
 const relDlg = ref(false)
-const nodeForm = reactive({ type: 'KNOWLEDGE_POINT', name: '', extra: '' })
-const relForm = reactive({ fromId: '', fromType: 'KNOWLEDGE_POINT', relType: 'RELATED', toId: '', toType: 'KNOWLEDGE_POINT' })
+const nodeForm = reactive({ type: 'KNOWLEDGE_POINT', nid: '', name: '', extra: '' })
+const relForm = reactive({ fromId: '', fromType: 'KNOWLEDGE_POINT', relType: 'RELATED_TO', toId: '', toType: 'KNOWLEDGE_POINT' })
 
 function symbolSizeOf(n) {
   const base = { COLLEGE: 16, MAJOR: 15, COURSE: 17, KNOWLEDGE_POINT: 19, RESOURCE: 22 }
@@ -135,22 +186,32 @@ function normType(t) {
   return TYPE_ALIAS[t] || t
 }
 
+// 节点 id 只在自己那一类里唯一（学院 1 和专业 1 都是 1），
+// ECharts 的 graph 要求全局唯一，所以画布上统一用「类型:id」当键，
+// 原始 id 存在 _rid 里，调接口时仍用它。
+function nodeKey(type, rid) { return type + ':' + String(rid) }
+
 function addNodeObj(n) {
   const type = normType(n.type)
-  if (nodes.find((x) => x.id === String(n.id) && x._type === type)) return
-  nodes.push({ id: String(n.id), name: n.label, _type: type, symbolSize: symbolSizeOf({ type, heat: n.heat }), itemStyle: { color: colorOf(type) }, category: categoryIndex(type) })
+  const rid = String(n.id)
+  const key = nodeKey(type, rid)
+  if (nodes.find((x) => x.id === key)) return
+  nodes.push({ id: key, _rid: rid, name: n.label, _type: type, symbolSize: symbolSizeOf({ type, heat: n.heat }), itemStyle: { color: colorOf(type) }, category: categoryIndex(type) })
 }
 function addEdgeObj(e) {
-  const key = e.source + '->' + e.target + ':' + e.relType
+  const st = normType(e.sourceType)
+  const tt = normType(e.targetType)
+  const s = st ? nodeKey(st, e.source) : String(e.source)
+  const t = tt ? nodeKey(tt, e.target) : String(e.target)
+  const key = s + '->' + t + ':' + e.relType
   if (edges.find((x) => x._key === key)) return
-  // 节点带 id 时，ECharts graph 的 links 必须用节点 id 匹配（实验验证）
-  edges.push({ _key: key, source: String(e.source), target: String(e.target), lineStyle: { color: GraphRelMap[e.relType]?.color || '#c2ccdd', curveness: 0.1 } })
+  edges.push({ _key: key, source: s, target: t, relType: e.relType, lineStyle: { color: GraphRelMap[e.relType]?.color || '#c2ccdd', curveness: 0.1 } })
 }
 
 function render() {
   if (!chart) return
   chart.setOption({
-    tooltip: { formatter: (p) => p.dataType === 'node' ? `<b>${p.data.name}</b><br/>${nodeTypeMap[p.data._type]}` : '' },
+    tooltip: { formatter: (p) => formatGraphTooltip(p, nodeTypeMap, 'admin') },
     legend: [{ data: Object.values(nodeTypeMap), top: 6, icon: 'circle', itemWidth: 10, itemHeight: 10 }],
     series: [{
       type: 'graph', layout: 'force', roam: true, draggable: true,
@@ -169,9 +230,9 @@ function onChartClick(params) {
     selected.value = params.data
     // 展开其多跳子图
     const p = params.data._type === 'KNOWLEDGE_POINT'
-      ? getSubgraph({ kpId: params.data.id, depth: 2 })
+      ? getSubgraph({ kpId: params.data._rid, depth: 2 })
       : params.data._type === 'RESOURCE'
-        ? getSubgraph({ resourceId: params.data.id, depth: 2 })
+        ? getSubgraph({ resourceId: params.data._rid, depth: 2 })
         : Promise.resolve({ nodes: [], edges: [] })
     p.then((d) => { (d.nodes || []).forEach(addNodeObj); (d.edges || []).forEach(addEdgeObj); render() }).catch(() => {})
   }
@@ -179,33 +240,65 @@ function onChartClick(params) {
 
 function loadNodes() {
   searching.value = true
-  listGraphNodes({ keyword: kw.value || undefined, type: selType.value || undefined, limit: 200 })
-    .then((d) => {
+  const params = { keyword: kw.value || undefined, type: selType.value || undefined, limit: 500 }
+  // /graph/nodes 与 /graph/edges 返回的是数组（不是 {nodes,edges}），这里两种形状都兼容。
+  // 之前的写法把数组当对象取 d.nodes，永远得到 undefined，所以画布一直是空的。
+  Promise.all([
+    listGraphNodes(params),
+    selType.value ? Promise.resolve([]) : listGraphEdges({})
+  ])
+    .then(([ns, es]) => {
       nodes.length = 0; edges.length = 0; selected.value = null
-      ;(d.nodes || []).forEach(addNodeObj)
+      const nodeList = Array.isArray(ns) ? ns : (ns && ns.nodes) || []
+      const edgeList = Array.isArray(es) ? es : (es && es.edges) || []
+      nodeList.forEach(addNodeObj)
+      // 只保留两端都在画布上的边，避免 ECharts 出现悬空连线
+      const ids = new Set(nodes.map((n) => n.id))
+      const onCanvas = (e) => {
+        const st = normType(e.sourceType)
+        const tt = normType(e.targetType)
+        const s = st ? nodeKey(st, e.source) : String(e.source)
+        const t = tt ? nodeKey(tt, e.target) : String(e.target)
+        return ids.has(s) && ids.has(t)
+      }
+      edgeList.filter(onCanvas).forEach(addEdgeObj)
       render()
     })
-    .catch(() => {})
+    .catch((e) => { console.error('[图谱运维] 加载失败', e) })
     .finally(() => { searching.value = false })
 }
 
 function addNode() {
   if (!nodeForm.name.trim()) { ElMessage.warning('请输入名称'); return }
+  const nid = nodeForm.nid.trim()
+  if (!nid) {
+    ElMessage.warning(nodeForm.type === 'RESOURCE' ? '请填写资源编号（与 MySQL 的 resource_no 一致）' : '请填写节点 ID，后续建关系要用它引用')
+    return
+  }
   let extra = {}
   if (nodeForm.extra.trim()) {
     try { extra = JSON.parse(nodeForm.extra) } catch (e) { ElMessage.warning('附加属性需为合法 JSON'); return }
   }
+  // 显式字段放在 extra 之后，避免附加属性把 id / 名称覆盖掉
+  const props = { ...extra, name: nodeForm.name.trim(), label: nodeForm.name.trim() }
+  if (nodeForm.type === 'RESOURCE') props.resource_id = nid
+  else props.id = /^\d+$/.test(nid) ? Number(nid) : nid
   acting.value = true
-  addGraphNode({ type: nodeForm.type, properties: { name: nodeForm.name.trim(), label: nodeForm.name.trim(), ...extra } })
-    .then(() => { ElMessage.success('节点创建成功'); nodeDlg.value = false; nodeForm.name = ''; nodeForm.extra = ''; loadNodes() })
-    .catch(() => {})
+  addGraphNode({ type: nodeForm.type, properties: props })
+    .then(() => {
+      ElMessage.success('节点创建成功')
+      nodeDlg.value = false
+      nodeForm.name = ''; nodeForm.nid = ''; nodeForm.extra = ''
+      loadNodes()
+    })
+    .catch((e) => { console.error('[图谱运维] 创建节点失败', e) })
     .finally(() => { acting.value = false })
 }
 
 function delNode() {
   if (!selected.value) return
   acting.value = true
-  deleteGraphNode(selected.value._type, selected.value.id)
+  deleteGraphNode(selected.value._type, selected.value._rid)
     .then(() => { ElMessage.success('节点已删除'); selected.value = null; loadNodes() })
     .catch(() => {})
     .finally(() => { acting.value = false })
@@ -223,7 +316,7 @@ function addRel() {
 function doSync() {
   syncing.value = true
   syncGraph({ scope: syncScope.value })
-    .then(() => { ElMessage.success(`同步完成（${syncScope.value}）`); loadNodes() })
+    .then((result) => { ElMessage.success(`已提交 ${result.queued} 条资源同步任务，请查看同步记录`); loadNodes(); loadLogs() })
     .catch(() => {})
     .finally(() => { syncing.value = false })
 }

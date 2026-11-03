@@ -353,16 +353,6 @@ lines.append(",\n".join(
     for i, (mid, col, name, code, desc) in enumerate(majors, start=1)
 ) + ";\n")
 maj_map = {m[0]: m[2] for m in majors}
-lines.append("\n-- 学院\nINSERT INTO college (id, name, code, description, sort, create_time) VALUES\n")
-lines.append(",\n".join(
-    f"({cid}, {S(name)}, {S(code)}, {S(desc)}, {i}, {S(rand_dt('2025-01-01 08:00:00','2025-03-01 08:00:00'))})"
-    for i, (cid, name, code, desc) in enumerate(colleges, start=1)
-) + ";\n")
-lines.append("\n-- 专业\nINSERT INTO major (id, college_id, name, code, description, sort, create_time) VALUES\n")
-lines.append(",\n".join(
-    f"({mid}, {col}, {S(name)}, {S(code)}, {S(desc)}, {i}, {S(rand_dt('2025-01-01 08:00:00','2025-03-01 08:00:00'))})"
-    for i, (mid, col, name, code, desc) in enumerate(majors, start=1)
-) + ";\n")
 lines.append("\n-- 课程\nINSERT INTO course (id, college_id, major_id, name, code, teacher, credit, semester, description, create_time) VALUES\n")
 lines.append(",\n".join(
     f"({cid}, {col}, {maj}, {S(name)}, {S(code)}, {S(teacher)}, {credit}, {S(sem)}, {S(name+'是'+maj_map.get(maj,'本专业')+'的核心课程，系统讲授相关理论与实验。')}, {S(rand_dt('2025-02-01 08:00:00','2025-04-01 08:00:00'))})"

@@ -54,9 +54,13 @@ export const GraphRelMap = {
   BELONGS_TO_KP: { label: '归属知识点', color: '#5b8def' },
   TEACHES: { label: '讲授', color: '#2bbf8a' },
   PREREQUISITE: { label: '先修', color: '#f5a623' },
+  CONTAINS: { label: '包含', color: '#8b5cf6' },
+  RELATED_TO: { label: '相关', color: '#8a9bb8' },
+  BELONGS_TO: { label: '属于', color: '#8a9bb8' },
+  // 下面两个不是 Neo4j 里的关系类型，只在推荐理由里作为“关联方式”出现，
+  // 保留是为了让理由文案与配色对得上，建关系时不要选它们。
   SAME_COURSE: { label: '同课程', color: '#8b5cf6' },
-  RELATED: { label: '相关', color: '#8a9bb8' },
-  BELONGS_TO: { label: '属于', color: '#8a9bb8' }
+  RELATED: { label: '横向相关', color: '#8a9bb8' }
 }
 
 // 图谱节点类型 → 颜色（ECharts 用）

@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-03",
+  "baseline_commit": "2f11d96",
+  "optimized_commit": "f18b306",
+  "jdk": "21",
+  "dataset": "200 resources, 30 students, 316 graph nodes",
+  "same_dataset_before_audit": true,
+  "measurement_notes": "Successful requests only; excludes client thread-pool queue time. Application cache hits may avoid database or Neo4j queries.",
+  "baseline": {
+    "scope": "HTTP request through application; database and graph access depend on the request and cache",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "logical_cpus": 32,
+    "requests": 200,
+    "concurrency": 4,
+    "warmup": 20,
+    "p50_ms": 90.78160001081415,
+    "p95_ms": 125.20179999410175,
+    "throughput_per_s": 41.66172454470035
+  },
+  "optimized": {
+    "scope": "HTTP request through application; database and graph access depend on the request and cache",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "logical_cpus": 32,
+    "requests": 200,
+    "concurrency": 4,
+    "warmup": 20,
+    "p50_ms": 10.900200009928085,
+    "p95_ms": 29.74940001149662,
+    "throughput_per_s": 293.59974574779346
+  }
+}

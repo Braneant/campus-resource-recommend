@@ -10,7 +10,7 @@
 
 **三个技术重点：** ItemCF、知识图谱和热度融合及推荐解释；审核通过后的 MySQL 与 Neo4j 同步；安全认证、自动化测试及可复现启动。
 
-**可复现结果：** [推荐离线对照](docs/evaluation.md) · [引擎性能基准](docs/performance.md) · [全新环境启动](docs/quickstart.md)。评测使用模拟数据；本次混合推荐 Recall@10 低于热门基线，不能据此宣称实际用户效果提升。
+**可复现结果：** [推荐离线对照](docs/evaluation.md) · [接口与引擎性能](docs/performance.md) · [全新环境启动](docs/quickstart.md) · [隔离验收记录](docs/verification.md)。评测使用模拟数据；本次混合推荐 Recall@10 低于热门基线，不能据此宣称实际用户效果提升。
 
 **界面演示：** [观看前端模拟演示视频](docs/demo/校园平台-前端模拟演示.mp4)。视频使用模拟接口和账号，不代表真实后端审核或算法运行结果。
 

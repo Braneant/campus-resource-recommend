@@ -6,6 +6,9 @@ import com.campus.recommend.dto.GraphNodeCreateDTO;
 import com.campus.recommend.dto.GraphRelationDTO;
 import com.campus.recommend.dto.GraphSyncDTO;
 import com.campus.recommend.service.GraphService;
+import com.campus.recommend.service.Neo4jSyncService;
+import com.campus.recommend.entity.Neo4jSyncLog;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +24,8 @@ public class AdminGraphController {
 
     @Autowired
     private GraphService graphService;
+    @Autowired
+    private Neo4jSyncService syncService;
 
     /** 新增节点 */
     @PostMapping("/node")
@@ -54,6 +59,17 @@ public class AdminGraphController {
     @PostMapping("/sync")
     public Result<Map<String, Object>> fullSync(@RequestBody(required = false) GraphSyncDTO dto) {
         int count = graphService.fullSync(dto);
-        return Result.success(Map.of("synced", count));
+        return Result.success(Map.of("queued", count));
+    }
+
+    @GetMapping("/sync/logs")
+    public Result<List<Neo4jSyncLog>> logs(@RequestParam(required = false) Integer status) {
+        return Result.success(syncService.recentLogs(status));
+    }
+
+    @PostMapping("/sync/logs/{id}/retry")
+    public Result<Void> retry(@PathVariable Long id) {
+        syncService.retry(id);
+        return Result.success();
     }
 }

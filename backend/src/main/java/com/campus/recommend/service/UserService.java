@@ -7,6 +7,7 @@ import com.campus.recommend.context.LoginContext;
 import com.campus.recommend.dto.ProfileUpdateDTO;
 import com.campus.recommend.entity.StudentUser;
 import com.campus.recommend.mapper.StudentUserMapper;
+import com.campus.recommend.util.PasswordPolicy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -67,6 +68,7 @@ public class UserService {
         if (!passwordEncoder.matches(oldPassword, stu.getPassword())) {
             throw new BusinessException(ResultCode.PARAM_ERROR, "原密码错误");
         }
+        PasswordPolicy.validateNewPassword(newPassword);
         stu.setPassword(passwordEncoder.encode(newPassword));
         studentUserMapper.updateById(stu);
     }

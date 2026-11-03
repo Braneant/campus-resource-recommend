@@ -140,7 +140,7 @@ const pwdForm = reactive({ oldPassword: '', newPassword: '' })
 const pwdRef = ref(null)
 const pwdRules = {
   oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
-  newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }, { min: 6, message: '至少 6 位', trigger: 'blur' }]
+  newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }, { min: 8, message: '至少 8 位', trigger: 'blur' }, { validator: (_rule, value, callback) => new TextEncoder().encode(value || '').length > 72 ? callback(new Error('密码不能超过 72 字节')) : callback(), trigger: 'blur' }]
 }
 
 function typeLabel(t) { return ResourceTypeMap[t]?.label || '其他' }

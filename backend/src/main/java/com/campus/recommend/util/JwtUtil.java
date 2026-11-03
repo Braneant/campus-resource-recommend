@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 
 /**
  * JWT 工具类（jjwt 0.12.x 新版 API）
@@ -36,6 +39,19 @@ public class JwtUtil {
 
     /** 生成 token */
     public String generateToken(Long userId, String role, String username) {
+        return generateToken(userId, role, username, null);
+    }
+
+    public String passwordVersion(String passwordHash) {
+        if (passwordHash == null) return null;
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(passwordHash.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.GeneralSecurityException e) { throw new IllegalStateException(e); }
+    }
+
+    public String generateToken(Long userId, String role, String username, String passwordHash) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + expiration);
         return Jwts.builder()
@@ -45,6 +61,7 @@ public class JwtUtil {
                 .expiration(exp)
                 .claim("uid", userId)
                 .claim("role", role)
+                .claim("pv", passwordVersion(passwordHash))
                 .signWith(key)
                 .compact();
     }
@@ -54,6 +71,7 @@ public class JwtUtil {
         try {
             return Jwts.parser()
                     .verifyWith(key)
+                    .requireIssuer(issuer)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();

@@ -3,6 +3,9 @@ package com.campus.recommend.controller;
 import com.campus.recommend.common.Result;
 import com.campus.recommend.dto.LoginDTO;
 import com.campus.recommend.dto.RegisterDTO;
+import com.campus.recommend.dto.ForgotPasswordDTO;
+import com.campus.recommend.dto.ResetPasswordDTO;
+import com.campus.recommend.service.PasswordResetService;
 import com.campus.recommend.service.AuthService;
 import com.campus.recommend.vo.LoginVO;
 import jakarta.validation.Valid;
@@ -20,6 +23,7 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+    @Autowired private PasswordResetService passwordResetService;
 
     /** 学生注册 */
     @PostMapping("/register")
@@ -35,15 +39,15 @@ public class AuthController {
 
     /** 找回密码（校验学号 + 邮箱） */
     @PostMapping("/forgot-password")
-    public Result<Void> forgotPassword(@RequestBody Map<String, String> body) {
-        authService.forgotPassword(body.get("studentNo"), body.get("email"));
+    public Result<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDTO body) {
+        passwordResetService.request(body.getStudentNo(), body.getEmail());
         return Result.success();
     }
 
     /** 重置密码 */
     @PostMapping("/reset-password")
-    public Result<Void> resetPassword(@RequestBody Map<String, String> body) {
-        authService.resetPassword(body.get("username"), body.get("newPassword"));
+    public Result<Void> resetPassword(@Valid @RequestBody ResetPasswordDTO body) {
+        passwordResetService.reset(body.getUsername(), body.getCode(), body.getNewPassword());
         return Result.success();
     }
 }

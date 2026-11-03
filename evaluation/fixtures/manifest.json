@@ -1,0 +1,34 @@
+{
+  "seed": 20261102,
+  "split": "per-user random pair holdout: cold 20% users, warm 20% pairs",
+  "catalog": 192,
+  "users": 20,
+  "cold_users": [
+    3,
+    6,
+    13,
+    19
+  ],
+  "train_pairs": 342,
+  "test_pairs": 185,
+  "input_modalities": {
+    "favorite_behavior": 359,
+    "download_behavior": 264,
+    "rating_behavior": 268
+  },
+  "train_heat": "sum capped implicit feedback / maximum, training pairs only",
+  "interest_policy": "smallest approved KP in profile major, else college, else catalog; no behavior/labels",
+  "source_sha256": {
+    "data/04_resource.sql": "f872834d0a70d6376b1a24aa3789af7784252722f8b724e1749fe0964a7c0729",
+    "data/05_user.sql": "2dc1e6a56c1cfb5ad0d361986204fe0cd1fedbf2dfa15c7d47b6d0c4971f9feb",
+    "data/06_behavior.sql": "262a56b161965e74ce0fa4d5848002a1dca7aaedefc7da31d7f85fc0d387601e",
+    "data/neo4j_init.cypher": "235d50ffb467f0ca2f015460b86717568720bea0bff4cb0276f493d885973a2b"
+  },
+  "fixture_sha256": {
+    "graph.tsv": "2d88e6506bdf807b953cfa4c262a88ae6645f4fafbb494e068b229acda4199a9",
+    "queries.tsv": "058306373b09d2b9e1ff34e2a5ec58578368b12f561392904dec2c43e87726be",
+    "resources.tsv": "2259d61d11a430b836b418541c87bcfa146c078f1892f8aa11755a80cabaf9b0",
+    "test.tsv": "760ecde79e3f04842bec4391994c483320613a8a1dd3c4137e4f8c0fa8c8df97",
+    "train.tsv": "87eacb50eed3469dd45d0858aa743f747ba6aebc7d1243c4878ce0fb193479be"
+  }
+}

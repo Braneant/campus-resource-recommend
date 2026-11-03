@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.campus.recommend.entity.LearningResource;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,10 @@ import java.util.Map;
 /** 学习资源表 Mapper（含大屏聚合查询） */
 @Mapper
 public interface LearningResourceMapper extends BaseMapper<LearningResource> {
+
+    /** Serialize graph application with concurrent changes to this resource. */
+    @Select("SELECT * FROM learning_resource WHERE id = #{id} FOR UPDATE")
+    LearningResource lockById(@Param("id") Long id);
 
     /** 资源分类占比（饼图）：按 category_id 分组统计 */
     @Select("""

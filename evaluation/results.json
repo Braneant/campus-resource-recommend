@@ -1,0 +1,156 @@
+{
+  "k": 10,
+  "seed": 20261102,
+  "protocol": {
+    "seed": 20261102,
+    "split": "per-user random pair holdout: cold 20% users, warm 20% pairs",
+    "catalog": 192,
+    "users": 20,
+    "cold_users": [
+      3,
+      6,
+      13,
+      19
+    ],
+    "train_pairs": 342,
+    "test_pairs": 185,
+    "input_modalities": {
+      "favorite_behavior": 359,
+      "download_behavior": 264,
+      "rating_behavior": 268
+    },
+    "train_heat": "sum capped implicit feedback / maximum, training pairs only",
+    "interest_policy": "smallest approved KP in profile major, else college, else catalog; no behavior/labels",
+    "source_sha256": {
+      "data/04_resource.sql": "f872834d0a70d6376b1a24aa3789af7784252722f8b724e1749fe0964a7c0729",
+      "data/05_user.sql": "2dc1e6a56c1cfb5ad0d361986204fe0cd1fedbf2dfa15c7d47b6d0c4971f9feb",
+      "data/06_behavior.sql": "262a56b161965e74ce0fa4d5848002a1dca7aaedefc7da31d7f85fc0d387601e",
+      "data/neo4j_init.cypher": "235d50ffb467f0ca2f015460b86717568720bea0bff4cb0276f493d885973a2b"
+    },
+    "fixture_sha256": {
+      "graph.tsv": "2d88e6506bdf807b953cfa4c262a88ae6645f4fafbb494e068b229acda4199a9",
+      "queries.tsv": "058306373b09d2b9e1ff34e2a5ec58578368b12f561392904dec2c43e87726be",
+      "resources.tsv": "2259d61d11a430b836b418541c87bcfa146c078f1892f8aa11755a80cabaf9b0",
+      "test.tsv": "760ecde79e3f04842bec4391994c483320613a8a1dd3c4137e4f8c0fa8c8df97",
+      "train.tsv": "87eacb50eed3469dd45d0858aa743f747ba6aebc7d1243c4878ce0fb193479be"
+    }
+  },
+  "metrics": {
+    "Hot": {
+      "all": {
+        "users": 20,
+        "recall_at_k": 0.3492418213969938,
+        "ndcg_at_k": 0.5464960452674565,
+        "catalog_coverage": 0.13020833333333334,
+        "recommended_catalog_items": 25,
+        "mean_list_length": 10.0
+      },
+      "warm": {
+        "users": 16,
+        "recall_at_k": 0.35520833333333335,
+        "ndcg_at_k": 0.45349532200688764,
+        "catalog_coverage": 0.13020833333333334,
+        "recommended_catalog_items": 25,
+        "mean_list_length": 10.0
+      },
+      "cold": {
+        "users": 4,
+        "recall_at_k": 0.3253757736516357,
+        "ndcg_at_k": 0.9184989383097323,
+        "catalog_coverage": 0.052083333333333336,
+        "recommended_catalog_items": 10,
+        "mean_list_length": 10.0
+      }
+    },
+    "ItemCF": {
+      "all": {
+        "users": 20,
+        "recall_at_k": 0.045,
+        "ndcg_at_k": 0.02930134035205617,
+        "catalog_coverage": 0.3177083333333333,
+        "recommended_catalog_items": 61,
+        "mean_list_length": 8.0
+      },
+      "warm": {
+        "users": 16,
+        "recall_at_k": 0.05625,
+        "ndcg_at_k": 0.036626675440070214,
+        "catalog_coverage": 0.3177083333333333,
+        "recommended_catalog_items": 61,
+        "mean_list_length": 10.0
+      },
+      "cold": {
+        "users": 4,
+        "recall_at_k": 0.0,
+        "ndcg_at_k": 0.0,
+        "catalog_coverage": 0.0,
+        "recommended_catalog_items": 0,
+        "mean_list_length": 0.0
+      }
+    },
+    "KG": {
+      "all": {
+        "users": 20,
+        "recall_at_k": 0.21554327537086157,
+        "ndcg_at_k": 0.27837744342704257,
+        "catalog_coverage": 0.2916666666666667,
+        "recommended_catalog_items": 56,
+        "mean_list_length": 9.6
+      },
+      "warm": {
+        "users": 16,
+        "recall_at_k": 0.24166666666666667,
+        "ndcg_at_k": 0.2596989633138154,
+        "catalog_coverage": 0.15625,
+        "recommended_catalog_items": 30,
+        "mean_list_length": 10.0
+      },
+      "cold": {
+        "users": 4,
+        "recall_at_k": 0.11104971018764123,
+        "ndcg_at_k": 0.35309136387995105,
+        "catalog_coverage": 0.16666666666666666,
+        "recommended_catalog_items": 32,
+        "mean_list_length": 8.0
+      }
+    },
+    "Hybrid": {
+      "all": {
+        "users": 20,
+        "recall_at_k": 0.22548727772865704,
+        "ndcg_at_k": 0.32410976494684235,
+        "catalog_coverage": 0.4895833333333333,
+        "recommended_catalog_items": 94,
+        "mean_list_length": 10.0
+      },
+      "warm": {
+        "users": 16,
+        "recall_at_k": 0.21666666666666667,
+        "ndcg_at_k": 0.24038776507288206,
+        "catalog_coverage": 0.3802083333333333,
+        "recommended_catalog_items": 73,
+        "mean_list_length": 10.0
+      },
+      "cold": {
+        "users": 4,
+        "recall_at_k": 0.2607697219766185,
+        "ndcg_at_k": 0.6589977644426835,
+        "catalog_coverage": 0.14583333333333334,
+        "recommended_catalog_items": 28,
+        "mean_list_length": 10.0
+      }
+    }
+  },
+  "engine_sha256": {
+    "BoundedTtlCache.java": "ce740713405a5d59ead1868ac8b3ba195528c6ff15d2ed3d461ae6cbcb7b3260",
+    "RecommendationEngine.java": "e06f187b49792737ce8eb1aa8773c7d1122f0c82b41fcff6976e1a27b0d8d2b8"
+  },
+  "python": "3.12.9",
+  "limitations": [
+    "Synthetic versioned seed data: 20 users, 192 approved items; not evidence of real learning outcomes.",
+    "One fixed random pair split; no temporal validation or significance claim.",
+    "Cold interest is a fixed profile/catalog proxy, not a surveyed preference.",
+    "ItemCF/KG may return fewer than K items without signal; no hidden popularity padding.",
+    "Neo4j topology is exported from seed Cypher; no live database or graph-query latency is measured."
+  ]
+}

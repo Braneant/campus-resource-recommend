@@ -6,6 +6,10 @@ import com.campus.recommend.common.ResultCode;
 import com.campus.recommend.context.LoginContext;
 import com.campus.recommend.context.LoginUser;
 import com.campus.recommend.util.JwtUtil;
+import com.campus.recommend.mapper.StudentUserMapper;
+import com.campus.recommend.mapper.AdminMapper;
+import com.campus.recommend.entity.StudentUser;
+import com.campus.recommend.entity.Admin;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,6 +35,8 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired private StudentUserMapper students;
+    @Autowired private AdminMapper admins;
 
     private final AntPathMatcher matcher = new AntPathMatcher();
 
@@ -57,6 +63,36 @@ public class JwtInterceptor implements HandlerInterceptor {
             String token = auth.substring(7).trim();
             Claims claims = jwtUtil.parseToken(token);
 
+            Long uid;
+            String role;
+            String username;
+            try {
+                uid = jwtUtil.getUserId(claims);
+                role = jwtUtil.getRole(claims);
+                username = jwtUtil.getUsername(claims);
+            } catch (RuntimeException e) {
+                throw new BusinessException(ResultCode.UNAUTHORIZED, "token 身份无效");
+            }
+            if (uid == null || username == null) throw new BusinessException(ResultCode.UNAUTHORIZED, "token 身份无效");
+            String currentPassword;
+            if ("STUDENT".equals(role)) {
+                StudentUser student = students.selectById(uid);
+                if (student == null || !Integer.valueOf(1).equals(student.getStatus()) || !username.equals(student.getUsername()))
+                    throw new BusinessException(ResultCode.UNAUTHORIZED, "账号不可用");
+                currentPassword = student.getPassword();
+            } else if ("ADMIN".equals(role)) {
+                Admin admin = admins.selectById(uid);
+                if (admin == null || !Integer.valueOf(1).equals(admin.getStatus()) || !username.equals(admin.getUsername()))
+                    throw new BusinessException(ResultCode.UNAUTHORIZED, "账号不可用");
+                currentPassword = admin.getPassword();
+            } else throw new BusinessException(ResultCode.UNAUTHORIZED, "token 角色无效");
+            String tokenVersion = claims.get("pv", String.class);
+            String currentVersion = jwtUtil.passwordVersion(currentPassword);
+            if (tokenVersion == null || currentVersion == null || !java.security.MessageDigest.isEqual(
+                    tokenVersion.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                    currentVersion.getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
+                throw new BusinessException(ResultCode.UNAUTHORIZED, "登录已失效，请重新登录");
+
             LoginUser lu = new LoginUser();
             lu.setUserId(jwtUtil.getUserId(claims));
             lu.setRole(jwtUtil.getRole(claims));
@@ -76,8 +112,9 @@ public class JwtInterceptor implements HandlerInterceptor {
                 }
             }
             return true;
-        } finally {
-            // 注意：请求结束后由 afterCompletion 清除；异常时也要清除
+        } catch (RuntimeException e) {
+            LoginContext.clear();
+            throw e;
         }
     }
 

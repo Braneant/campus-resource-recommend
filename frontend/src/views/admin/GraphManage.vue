@@ -40,6 +40,25 @@
       </section>
     </div>
 
+    <section class="app-card" style="margin-top:20px;padding:20px">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">同步记录</h3>
+        <el-select v-model="logStatus" clearable placeholder="全部状态" style="width:150px" @change="loadLogs">
+          <el-option :value="0" label="待同步" /><el-option :value="1" label="成功" /><el-option :value="2" label="失败" />
+        </el-select>
+        <el-button :loading="logsLoading" @click="loadLogs">刷新记录</el-button>
+      </div>
+      <p style="color:var(--text-secondary);font-size:13px">审核提交后同步图谱；失败不撤销审核，可排查后重试。显示最近 100 条。</p>
+      <el-table :data="syncLogs" v-loading="logsLoading" max-height="320" empty-text="暂无同步记录">
+        <el-table-column prop="id" label="任务" width="80" />
+        <el-table-column prop="resourceId" label="资源 ID" width="100" />
+        <el-table-column label="状态" width="100"><template #default="{row}">{{ ['待同步','成功','失败'][row.syncStatus] || '未知' }}</template></el-table-column>
+        <el-table-column prop="errorMsg" label="说明" min-width="220" />
+        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <el-table-column label="操作" width="100"><template #default="{row}"><el-button v-if="row.syncStatus !== 1" link type="primary" :loading="retrying === row.id" @click="retryLog(row.id)">重试</el-button></template></el-table-column>
+      </el-table>
+    </section>
+
     <!-- 新增节点 -->
     <el-dialog v-model="nodeDlg" title="新增图谱节点" width="440px">
       <el-form :model="nodeForm" label-width="90px">
@@ -101,7 +120,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { Plus, Link, Refresh, Search, Delete } from '@element-plus/icons-vue'
-import { addGraphNode, deleteGraphNode, addGraphRelation, syncGraph } from '@/api/admin'
+import { addGraphNode, deleteGraphNode, addGraphRelation, syncGraph, listSyncLogs, retrySyncLog } from '@/api/admin'
 import { listGraphNodes, listGraphEdges, getSubgraph } from '@/api/graph'
 import { GraphNodeColor, GraphNodeTypeMap, GraphRelMap } from '@/utils/constants'
 
@@ -131,6 +150,21 @@ const searching = ref(false)
 const acting = ref(false)
 const syncing = ref(false)
 const syncScope = ref('all')
+const syncLogs = ref([])
+const logStatus = ref()
+const logsLoading = ref(false)
+const retrying = ref(null)
+async function loadLogs() {
+  logsLoading.value = true
+  try { syncLogs.value = await listSyncLogs({ status: logStatus.value }) }
+  finally { logsLoading.value = false }
+}
+async function retryLog(id) {
+  retrying.value = id
+  try { await retrySyncLog(id); await loadLogs() }
+  finally { retrying.value = null }
+}
+onMounted(loadLogs)
 
 const nodeDlg = ref(false)
 const relDlg = ref(false)
@@ -281,7 +315,7 @@ function addRel() {
 function doSync() {
   syncing.value = true
   syncGraph({ scope: syncScope.value })
-    .then(() => { ElMessage.success(`同步完成（${syncScope.value}）`); loadNodes() })
+    .then((result) => { ElMessage.success(`已提交 ${result.queued} 条资源同步任务，请查看同步记录`); loadNodes(); loadLogs() })
     .catch(() => {})
     .finally(() => { syncing.value = false })
 }

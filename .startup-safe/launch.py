@@ -76,6 +76,45 @@ def process_matches(pid, marker):
                       else argument for argument in arguments]
 
 
+def owned_descendants(pid):
+    """Find child PIDs without terminating them; caller must verify each identity."""
+    pending, found = [pid], []
+    while pending:
+        parent = pending.pop(0)
+        command = (f'$ErrorActionPreference="Stop"; '
+                   f'Get-CimInstance Win32_Process -Filter "ParentProcessId={int(parent)}" '
+                   '| ForEach-Object { $_.ProcessId }')
+        result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command],
+                                capture_output=True, creationflags=FLAGS, timeout=10)
+        if result.returncode:
+            raise RuntimeError('Process identity inspection denied; refusing to stop descendants')
+        for line in result.stdout.decode('ascii', errors='strict').splitlines():
+            child = int(line.strip())
+            if child in found or child == pid or len(found) >= 256:
+                raise RuntimeError('Unexpected process tree; refusing to stop descendants')
+            found.append(child)
+            pending.append(child)
+    return list(reversed(found))
+
+
+def process_exists(pid):
+    command = f'$ErrorActionPreference="Stop"; (Get-CimInstance Win32_Process -Filter "ProcessId={int(pid)}").ProcessId'
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command],
+                            capture_output=True, creationflags=FLAGS, timeout=10)
+    if result.returncode:
+        raise RuntimeError('Process identity inspection denied; cannot confirm process exit')
+    return bool(result.stdout.strip())
+
+
+def is_console_host(pid):
+    command = f'$ErrorActionPreference="Stop"; (Get-CimInstance Win32_Process -Filter "ProcessId={int(pid)}").Name'
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command],
+                            capture_output=True, creationflags=FLAGS, timeout=10)
+    if result.returncode:
+        raise RuntimeError('Process identity inspection denied; refusing to stop')
+    return result.stdout.decode('ascii', errors='replace').strip().lower() == 'conhost.exe'
+
+
 def read_state():
     if not STATE.exists():
         return {}
@@ -110,10 +149,20 @@ def stop_owned(state):
         if item:
             if not process_matches(item['pid'], marker):
                 raise RuntimeError(f"Refusing to stop {name} PID {item['pid']}: owner identity does not match")
-            owned.append((name, item))
-    for name, item in owned:
-        subprocess.run(['taskkill.exe', '/PID', str(item['pid']), '/F'],
-            check=True, capture_output=True, creationflags=FLAGS, timeout=15)
+            descendants = owned_descendants(item['pid']) if name == 'backend' else []
+            verified = []
+            for child in descendants:
+                if process_matches(child, marker):
+                    verified.append(child)
+                elif not is_console_host(child):
+                    raise RuntimeError(f'Refusing to stop {name} child PID {child}: owner identity does not match')
+            owned.append((name, item, verified))
+    for name, item, descendants in owned:
+        for pid in [*descendants, item['pid']]:
+            result = subprocess.run(['taskkill.exe', '/PID', str(pid), '/F'],
+                capture_output=True, creationflags=FLAGS, timeout=15)
+            if result.returncode and process_exists(pid):
+                raise RuntimeError(f'Unable to stop owned {name} PID {pid}')
         state.pop(name)
         write_state(state)
         print(f"[OK] Stopped owned {name} PID {item['pid']}", flush=True)

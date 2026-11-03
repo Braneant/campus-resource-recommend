@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions
+set "ENTRY_ROOT=%~dp0"
 cd /d "%~dp0"
 set "NOPAUSE=0"
 :scan_args
@@ -10,7 +11,7 @@ goto scan_args
 :run_launcher
 where python >nul 2>nul
 if errorlevel 1 goto no_python
-python "%~dp0.startup-safe\launch.py" /stop %*
+python "%ENTRY_ROOT%.startup-safe\launch.py" /stop %*
 set "RESULT=%errorlevel%"
 if "%NOPAUSE%"=="0" pause
 exit /b %RESULT%
